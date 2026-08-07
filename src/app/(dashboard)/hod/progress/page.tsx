@@ -1,0 +1,91 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getDepartmentProgress } from "@/features/hod/services/hod";
+import { AsyncContent } from "@/components/shared/AsyncContent";
+
+interface ProgressItem {
+  subject: string;
+  completed: number;
+  total: number;
+}
+
+function ProgressBar({ completed, total, color }: { completed: number; total: number; color: string }) {
+  const percentage = total > 0 ? (completed / total) * 100 : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-sm">
+        <span className="font-medium">{completed}/{total} competencies</span>
+        <span className="text-muted-foreground">{Math.round(percentage)}%</span>
+      </div>
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${percentage}%`,
+            backgroundColor: `var(--${color})`,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+export default function DepartmentProgressPage() {
+  const [progress, setProgress] = useState<ProgressItem[] | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await getDepartmentProgress();
+      setProgress(data);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error("Failed to load department progress"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Department Progress" description="Track competency completion across subjects" />
+
+      <AsyncContent
+        data={progress}
+        isLoading={isLoading}
+        error={error}
+        onRetry={fetchData}
+        emptyTitle="No progress data available"
+        emptyDescription="No department progress data is available yet."
+      >
+        {(items) => (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {items.map((item, i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <CardTitle>{item.subject}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ProgressBar
+                    completed={item.completed}
+                    total={item.total}
+                    color={i === 0 ? "blue" : i === 1 ? "green" : "purple"}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </AsyncContent>
+    </div>
+  );
+}

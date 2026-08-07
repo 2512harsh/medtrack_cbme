@@ -1,0 +1,147 @@
+export const mockEvidenceRecords = [
+  {
+    id: "ev-1",
+    competencyId: "comp-1",
+    competencyCode: "AN8.1",
+    competencyTitle: "Upper Limb Overview",
+    fileName: "upper_limb_practical_video.mp4",
+    fileType: "VIDEO",
+    fileSize: "24.6 MB",
+    description: "Video demonstrating upper limb surface anatomy",
+    uploadedAt: "2026-08-04T14:22:00Z",
+    status: "PENDING",
+  },
+  {
+    id: "ev-2",
+    competencyId: "comp-11",
+    competencyCode: "PY1.1",
+    competencyTitle: "Cell Physiology",
+    fileName: "cell_physiology_lab_report.pdf",
+    fileType: "PDF",
+    fileSize: "1.8 MB",
+    description: "Lab report on cell membrane transport",
+    uploadedAt: "2026-08-01T10:10:00Z",
+    status: "APPROVED",
+  },
+  {
+    id: "ev-3",
+    competencyId: "comp-17",
+    competencyCode: "BI1.1",
+    competencyTitle: "Biomolecules",
+    fileName: "biomolecule_structures.png",
+    fileType: "IMAGE",
+    fileSize: "3.4 MB",
+    description: "Diagram of biomolecule structures",
+    uploadedAt: "2026-07-28T16:45:00Z",
+    status: "REJECTED",
+  },
+];
+
+export const mockAttendanceSessions = [
+  {
+    id: "att-1",
+    subject: "Anatomy",
+    competencyCode: "AN8.1",
+    competencyTitle: "Upper Limb Overview",
+    batch: "MBBS-2024",
+    sessionTitle: "Upper Limb Dissection Practical",
+    startAt: "2026-08-06T13:00:00Z",
+    qrActive: true,
+    presentCount: 28,
+    totalStudents: 32,
+  },
+  {
+    id: "att-2",
+    subject: "Physiology",
+    competencyCode: "PY1.1",
+    competencyTitle: "Cell Physiology",
+    batch: "MBBS-2024",
+    sessionTitle: "Cell Physiology Theory",
+    startAt: "2026-08-05T09:00:00Z",
+    qrActive: false,
+    presentCount: 45,
+    totalStudents: 48,
+  },
+];
+
+export const mockLmsIntegrations = [
+  {
+    id: "lms-1",
+    name: "Moodle",
+    status: "CONNECTED",
+    baseUrl: "https://moodle.medtrac.edu",
+    syncSchedule: "Daily at 02:00",
+    lastSyncedAt: "2026-08-06T02:00:00Z",
+    syncedRecords: 42,
+    description: "Official learning management system",
+    logo: "M",
+  },
+  {
+    id: "lms-2",
+    name: "Canvas",
+    status: "DISCONNECTED",
+    baseUrl: "",
+    syncSchedule: "Manual",
+    lastSyncedAt: null,
+    syncedRecords: 0,
+    description: "Optional LMS integration",
+    logo: "C",
+  },
+];
+
+export const mockBillingSubscriptions = [
+  {
+    id: "sub-1",
+    plan: "Institution",
+    status: "ACTIVE",
+    amount: 2499,
+    currency: "USD",
+    billingCycle: "Monthly",
+    renewalDate: "2026-09-01T00:00:00Z",
+    seats: 500,
+    institution: "AIIMS Delhi",
+  },
+  {
+    id: "sub-2",
+    plan: "Department",
+    status: "CANCELED",
+    amount: 899,
+    currency: "USD",
+    billingCycle: "Monthly",
+    renewalDate: "2026-06-30T00:00:00Z",
+    seats: 100,
+    institution: "PGIMER Chandigarh",
+  },
+];
+
+export const mockInvoiceHistory = [
+  {
+    id: "inv-1",
+    invoiceNumber: "INV-2026-0801",
+    plan: "Institution",
+    amount: 2499,
+    currency: "USD",
+    issuedAt: "2026-08-01T00:00:00Z",
+    status: "PAID",
+  },
+  {
+    id: "inv-2",
+    invoiceNumber: "INV-2026-0701",
+    plan: "Institution",
+    amount: 2499,
+    currency: "USD",
+    issuedAt: "2026-07-01T00:00:00Z",
+    status: "PAID",
+  },
+];
+
+export const mockBrandingConfig = {
+  institutionId: "inst-1",
+  institutionName: "AIIMS Delhi",
+  primaryColor: "#0f766e",
+  logoUrl: "",
+  loginMessage: "Official Competency-Based Medical Education Platform",
+  footerText: "© 2026 AIIMS Delhi. All rights reserved.",
+  enabled: true,
+  theme: "light",
+};
