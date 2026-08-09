@@ -15,7 +15,6 @@ import {
 const navigation = [
   { href: "/dashboard/super-admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/super-admin/institutions", label: "Institutions", icon: Building2 },
-  { href: "/super-admin/hod-accounts", label: "HOD Accounts", icon: Users },
   { href: "/super-admin/departments", label: "Departments", icon: Network },
   { href: "/super-admin/competency-import", label: "Competency Import", icon: FileSpreadsheet },
   { href: "/super-admin/monitoring", label: "Platform Monitoring", icon: Activity },

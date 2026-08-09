@@ -11,6 +11,8 @@ import {
   getHodAccounts,
   createDepartment,
   setDepartmentStatus,
+  createHodAccount,
+  updateDepartment,
 } from "@/features/super-admin/services/superAdmin";
 import { ColumnDef } from "@tanstack/react-table";
 import { AsyncContent } from "@/components/shared/AsyncContent";
@@ -34,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type DepartmentRow = {
   id: string;
@@ -57,6 +60,11 @@ export default function DepartmentsPage() {
     name: "",
     description: "",
     institutionId: "",
+    createHod: false,
+    hodFirstName: "",
+    hodLastName: "",
+    hodEmail: "",
+    hodPassword: "",
   });
 
   const [statusTarget, setStatusTarget] = useState<DepartmentRow | null>(null);
@@ -163,17 +171,46 @@ export default function DepartmentsPage() {
       toast.error("Name and institution are required");
       return;
     }
+    
+    if (form.createHod) {
+      if (!form.hodFirstName || !form.hodLastName || !form.hodEmail || !form.hodPassword) {
+        toast.error("All HOD fields are required if creating an HOD account");
+        return;
+      }
+    }
+    
     setSubmitting(true);
     try {
-      await createDepartment({
+      const department = await createDepartment({
         name: form.name,
         description: form.description || undefined,
         institutionId: form.institutionId,
         status: "ACTIVE",
       });
+
+      if (form.createHod) {
+        const hod = await createHodAccount({
+          firstName: form.hodFirstName,
+          lastName: form.hodLastName,
+          email: form.hodEmail,
+          password: form.hodPassword,
+          departmentId: department.id,
+        });
+        await updateDepartment(department.id, { hodId: hod.id });
+      }
+
       toast.success("Department created successfully");
       setDialogOpen(false);
-      setForm({ name: "", description: "", institutionId: "" });
+      setForm({ 
+        name: "", 
+        description: "", 
+        institutionId: "",
+        createHod: false,
+        hodFirstName: "",
+        hodLastName: "",
+        hodEmail: "",
+        hodPassword: "",
+      });
       await fetchData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create department");
@@ -274,6 +311,62 @@ export default function DepartmentsPage() {
                 </SelectContent>
               </Select>
             </div>
+            
+            <div className="space-y-2 pt-2 border-t mt-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="create-hod"
+                  checked={form.createHod}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, createHod: checked === true })
+                  }
+                />
+                <Label htmlFor="create-hod">Create HOD Account for this Department</Label>
+              </div>
+            </div>
+
+            {form.createHod && (
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-2">
+                  <Label htmlFor="hod-firstName">First Name *</Label>
+                  <Input
+                    id="hod-firstName"
+                    value={form.hodFirstName}
+                    onChange={(e) => setForm({ ...form, hodFirstName: e.target.value })}
+                    placeholder="First Name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hod-lastName">Last Name *</Label>
+                  <Input
+                    id="hod-lastName"
+                    value={form.hodLastName}
+                    onChange={(e) => setForm({ ...form, hodLastName: e.target.value })}
+                    placeholder="Last Name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hod-email">Email *</Label>
+                  <Input
+                    id="hod-email"
+                    type="email"
+                    value={form.hodEmail}
+                    onChange={(e) => setForm({ ...form, hodEmail: e.target.value })}
+                    placeholder="hod@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="hod-password">Password *</Label>
+                  <Input
+                    id="hod-password"
+                    type="password"
+                    value={form.hodPassword}
+                    onChange={(e) => setForm({ ...form, hodPassword: e.target.value })}
+                    placeholder="Enter password"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>

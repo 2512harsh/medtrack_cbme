@@ -1,197 +1,194 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLoadingSkeleton } from "@/components/shared/LoadingSkeleton";
-import {
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  Save,
-  FileText,
-  Calendar,
-  User as UserIcon,
-  RotateCcw,
-} from "lucide-react";
+import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
+import { ColumnDef } from "@tanstack/react-table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { FileText, Users as UsersIcon, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAssignedStudents,
-  getAssignedCompetencies,
-  getAssessmentById,
-  getAssessmentDraft,
-  getOrCreateAssessment,
-  saveAssessmentDraft,
-  submitAssessment,
 } from "@/features/faculty/services/faculty";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
-import type { Assessment, AssessmentAttempt, CompetencyAssignment, Student } from "@/types";
+import type { Student } from "@/types";
 
-const decisions: AssessmentAttempt["decision"][] = [
-  "Meets Expectations",
-  "Exceeds Expectations",
-  "Needs Remediation",
+// Mock Data for Hierarchy based on CBME spreadsheet
+const mockSubjects = [
+  { id: "sub-1", name: "General Anatomy" },
+  { id: "sub-2", name: "Upper Limb" },
+  { id: "sub-3", name: "Lower Limb" },
 ];
 
-function statusPill(status?: string) {
-  switch (status) {
-    case "Completed":
-      return "bg-green-100 text-green-700";
-    case "Reattempt Scheduled":
-      return "bg-orange-100 text-orange-700";
-    case "Waiting for Student Acknowledgement":
-    case "Submitted":
-      return "bg-blue-100 text-blue-700";
-    case "In Progress":
-      return "bg-amber-100 text-amber-700";
-    default:
-      return "bg-gray-100 text-gray-700";
-  }
-}
+const mockTopics = [
+  { id: "top-1", subjectId: "sub-1", name: "Topic 1: Anatomical terminology" },
+  { id: "top-2", subjectId: "sub-1", name: "Topic 2: General features of bones & Joints" },
+  { id: "top-3", subjectId: "sub-2", name: "Topic 1: Pectoral Region" },
+];
+
+const mockCompetencies = [
+  { id: "comp-1", topicId: "top-1", code: "AN1.1", title: "Describe & Demonstrate normal anatomical position, various planes, relation..." },
+  { id: "comp-2", topicId: "top-1", code: "AN1.2", title: "Describe composition of bone and bone marrow" },
+  { id: "comp-3", topicId: "top-2", code: "AN2.1", title: "Describe parts, types, peculiarities of each type, blood and nerve supply of bones." },
+  { id: "comp-4", topicId: "top-2", code: "AN2.2", title: "Describe the laws of ossification, epiphysis, its various types and their importance" },
+  { id: "comp-5", topicId: "top-3", code: "AN9.1", title: "Describe attachments, nerve supply and action of pectoralis major and minor" },
+  { id: "comp-6", topicId: "top-3", code: "AN9.2", title: "Describe breast - location, blood supply, lymphatic drainage" },
+];
 
 export default function AssessmentFormPage() {
-  const searchParams = useSearchParams();
   const { user } = useAuth();
-  const assessmentId = searchParams.get("assessmentId");
-  const studentParam = searchParams.get("studentId");
-  const assignmentParam = searchParams.get("assignmentId");
-
+  
   const [students, setStudents] = useState<Student[]>([]);
-  const [competencies, setCompetencies] = useState<CompetencyAssignment[]>([]);
-  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [studentId, setStudentId] = useState("");
-  const [competencyId, setCompetencyId] = useState("");
-  const [rating, setRating] = useState("");
-  const [decision, setDecision] = useState<AssessmentAttempt["decision"] | "">("");
-  const [remarks, setRemarks] = useState("");
-  const [signature, setSignature] = useState(user ? `${user.firstName} ${user.lastName}` : "");
-  const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error" | "remediation">("idle");
+  // Table State
+  const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(new Set());
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [s, c] = await Promise.all([getAssignedStudents(), getAssignedCompetencies()]);
-        setStudents(s);
-        setCompetencies(c);
-        if (studentParam && !assessmentId) {
-          setStudentId(studentParam);
-        }
-        if (assignmentParam && !assessmentId) {
-          setCompetencyId(assignmentParam);
-        }
-        if (assessmentId) {
-          const a = await getAssessmentById(assessmentId);
-          if (a) {
-            setAssessment(a);
-            setStudentId(a.studentId);
-            setCompetencyId(a.competencyAssignmentId);
-            const draft = await getAssessmentDraft(assessmentId);
-            if (draft) {
-              setRating(draft.rating);
-              setRemarks(draft.remarks);
-              if (draft.facultySignature) setSignature(draft.facultySignature);
-            }
-          }
-        }
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [assessmentId, studentParam, assignmentParam]);
+  // Form State
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedCompetency, setSelectedCompetency] = useState("");
+  const [attempt, setAttempt] = useState("First Attempt");
+  const [rating, setRating] = useState("");
+  const [remarks, setRemarks] = useState("");
 
-  const resolveAssessment = async (): Promise<Assessment> => {
-    if (assessment) return assessment;
-    return getOrCreateAssessment(studentId, competencyId);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const s = await getAssignedStudents();
+      setStudents(s);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitStatus("idle");
-    if (!studentId || !rating || !decision || !remarks || !signature) {
-      setSubmitStatus("error");
-      toast.error("Please fill in all required fields");
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const toggleStudentSelection = (studentId: string) => {
+    const next = new Set(selectedStudentIds);
+    if (next.has(studentId)) {
+      next.delete(studentId);
+    } else {
+      next.add(studentId);
+    }
+    setSelectedStudentIds(next);
+  };
+
+  const toggleAllStudents = () => {
+    if (selectedStudentIds.size === students.length) {
+      setSelectedStudentIds(new Set());
+    } else {
+      setSelectedStudentIds(new Set(students.map((s) => s.id)));
+    }
+  };
+
+  const columns: ColumnDef<AppTableFeatures, Student>[] = [
+    {
+      id: "select",
+      header: () => (
+        <Checkbox
+          checked={students.length > 0 && selectedStudentIds.size === students.length}
+          onCheckedChange={toggleAllStudents}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={selectedStudentIds.has(row.original.id)}
+          onCheckedChange={() => toggleStudentSelection(row.original.id)}
+          aria-label="Select row"
+        />
+      ),
+    },
+    {
+      id: "student",
+      header: "Student",
+      cell: ({ row }) => {
+        const student = row.original;
+        return (
+          <div className="flex flex-col">
+            <span className="font-medium">
+              {student.user ? `${student.user.firstName} ${student.user.lastName}` : "Unknown"}
+            </span>
+            <span className="text-xs text-muted-foreground">{student.rollNumber}</span>
+          </div>
+        );
+      },
+    },
+    {
+      id: "batch",
+      header: "Batch",
+      cell: ({ row }) => <span>{row.original.batch}</span>,
+    },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setSelectedStudentIds(new Set([row.original.id]));
+            setIsModalOpen(true);
+          }}
+        >
+          Evaluate
+        </Button>
+      ),
+    },
+  ];
+
+  const handleSubmit = async () => {
+    if (!selectedSubject || !selectedTopic || !selectedCompetency || !attempt || !rating || !remarks) {
+      toast.error("Please complete all required fields");
       return;
     }
+
     setIsSubmitting(true);
     try {
-      const resolved = await resolveAssessment();
-      const attempt = await submitAssessment({
-        assessmentId: resolved.id,
-        rating,
-        decision,
-        remarks,
-        facultySignature: signature,
-      });
-      setAssessment({ ...resolved, currentAttempt: attempt.attemptNumber });
-      setSubmitStatus(decision === "Needs Remediation" ? "remediation" : "success");
-      toast.success(
-        decision === "Needs Remediation"
-          ? "Assessment submitted. A reattempt has been scheduled."
-          : "Assessment submitted successfully"
-      );
-    } catch {
-      setSubmitStatus("error");
-      toast.error("Failed to submit assessment. Please try again.");
+      // Mock submission for all selected students
+      for (const studentId of Array.from(selectedStudentIds)) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+      toast.success(`Successfully submitted assessments for ${selectedStudentIds.size} student(s)`);
+      setIsModalOpen(false);
+      
+      // Reset form
+      setSelectedStudentIds(new Set());
+      setSelectedSubject("");
+      setSelectedTopic("");
+      setSelectedCompetency("");
+      setAttempt("First Attempt");
+      setRating("");
+      setRemarks("");
+      
+    } catch (err) {
+      toast.error("An error occurred while submitting assessments");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSaveDraft = async () => {
-    if (!studentId) {
-      toast.error("Select a student before saving a draft");
-      return;
-    }
-    setIsSavingDraft(true);
-    try {
-      const resolved = await resolveAssessment();
-      await saveAssessmentDraft({
-        assessmentId: resolved.id,
-        rating,
-        remarks,
-        facultySignature: signature,
-      });
-      setAssessment(resolved);
-      setSubmitStatus("idle");
-      toast.success("Draft saved locally");
-    } catch {
-      toast.error("Failed to save draft. Please try again.");
-    } finally {
-      setIsSavingDraft(false);
-    }
-  };
-
-  const resetForm = () => {
-    setSubmitStatus("idle");
-    setRating("");
-    setDecision("");
-    setRemarks("");
-    setSignature(user ? `${user.firstName} ${user.lastName}` : "");
-    setStudentId("");
-    setCompetencyId("");
-    setAssessment(null);
-  };
-
-  const isFormDisabled = isSubmitting || isSavingDraft;
-  const facultyName = user ? `${user.firstName} ${user.lastName}` : "Faculty";
-  const currentCompetency = assessment?.competencyAssignment?.competency;
-  const currentStudent = assessment?.student;
+  const filteredTopics = mockTopics.filter((t) => t.subjectId === selectedSubject);
+  const filteredCompetencies = mockCompetencies.filter((c) => c.topicId === selectedTopic);
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Assessment Form" description="Record your evaluation for a student" />
+        <PageHeader title="Pending Assessments" description="Select students to evaluate" />
         <PageLoadingSkeleton />
       </div>
     );
@@ -200,223 +197,210 @@ export default function AssessmentFormPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Assessment Form"
-        description="Record your evaluation for a student"
+        title="Pending Assessments"
+        description="Select one or multiple students to evaluate them together"
+        actions={
+          <Button
+            onClick={() => {
+              if (selectedStudentIds.size === 0) {
+                toast.error("Please select at least one student from the table");
+                return;
+              }
+              setIsModalOpen(true);
+            }}
+            disabled={selectedStudentIds.size === 0}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Bulk Evaluate ({selectedStudentIds.size})
+          </Button>
+        }
       />
-
-      {assessment && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              {currentCompetency?.competencyCode ?? "Competency"} — {currentCompetency?.competencyTitle ?? "Assessment"}
-            </CardTitle>
-            <CardDescription>
-              Review context for this assessment
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            <div className="flex items-start gap-2">
-              <UserIcon className="mt-0.5 h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-muted-foreground text-xs">Student</p>
-                <p className="font-medium">
-                  {currentStudent?.user
-                    ? `${currentStudent.user.firstName} ${currentStudent.user.lastName}`
-                    : "—"}
-                </p>
-                <p className="text-muted-foreground text-xs">{currentStudent?.rollNumber}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <RotateCcw className="mt-0.5 h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-muted-foreground text-xs">Attempt</p>
-                <p className="font-medium">Attempt {assessment.currentAttempt}</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle className="mt-0.5 h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-muted-foreground text-xs">Status</p>
-                <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${statusPill(assessment.currentStatus)}`}>
-                  {assessment.currentStatus}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-start gap-2">
-              <Calendar className="mt-0.5 h-4 w-4 text-muted-foreground" />
-              <div>
-                <p className="text-muted-foreground text-xs">Created</p>
-                <p className="font-medium">
-                  {new Date(assessment.createdAt).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Faculty Evaluation</CardTitle>
-          <CardDescription>
-            Fill in the assessment details below
-          </CardDescription>
+          <CardTitle>Students</CardTitle>
+          <CardDescription>Select students below to begin assessment</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="student">Student</Label>
-              {assessment ? (
-                <Input value={currentStudent?.user ? `${currentStudent.user.firstName} ${currentStudent.user.lastName} (${currentStudent.rollNumber})` : ""} disabled readOnly />
-              ) : (
-                <Select value={studentId} onValueChange={(v) => setStudentId(v ?? "")} disabled={isFormDisabled}>
-                  <SelectTrigger id="student">
-                    <SelectValue placeholder="Select a student" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {students.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.user ? `${s.user.firstName} ${s.user.lastName} (${s.rollNumber})` : s.rollNumber}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+          <DataTable
+            columns={columns}
+            data={students}
+            searchPlaceholder="Search students..."
+          />
+        </CardContent>
+      </Card>
+
+      <Dialog open={isModalOpen} onOpenChange={(open) => !isSubmitting && setIsModalOpen(open)}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Evaluate Students</DialogTitle>
+            <DialogDescription>
+              Fill out the assessment details below for the selected student(s).
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-6">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold flex items-center gap-2 border-b pb-2">
+                <UsersIcon className="h-4 w-4 text-primary" />
+                Selected Students ({selectedStudentIds.size})
+              </h3>
+              <div className="max-h-32 overflow-y-auto space-y-2 border rounded-md p-3 bg-muted/20">
+                {students
+                  .filter((s) => selectedStudentIds.has(s.id))
+                  .map((s) => (
+                    <div key={s.id} className="flex justify-between items-center text-sm">
+                      <span className="font-medium">
+                        {s.user ? `${s.user.firstName} ${s.user.lastName}` : "Unknown"}
+                      </span>
+                      <span className="text-muted-foreground">{s.rollNumber}</span>
+                    </div>
+                  ))}
+              </div>
             </div>
 
-            {!assessment && (
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="text-sm font-semibold">Competency Selection</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Subject *</Label>
+                  <Select value={selectedSubject} onValueChange={(v) => { setSelectedSubject(v ?? ""); setSelectedTopic(""); setSelectedCompetency(""); }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a subject">
+                        {mockSubjects.find((s) => s.id === selectedSubject)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mockSubjects.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Topic *</Label>
+                  <Select value={selectedTopic} onValueChange={(v) => { setSelectedTopic(v ?? ""); setSelectedCompetency(""); }} disabled={!selectedSubject}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a topic">
+                        {mockTopics.find((t) => t.id === selectedTopic)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredTopics.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="competency">Competency</Label>
-                <Select value={competencyId} onValueChange={(v) => setCompetencyId(v ?? "")} disabled={isFormDisabled}>
-                  <SelectTrigger id="competency">
-                    <SelectValue placeholder="Select a competency" />
+                <Label>Competency *</Label>
+                <Select value={selectedCompetency} onValueChange={(v) => setSelectedCompetency(v ?? "")} disabled={!selectedTopic}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a competency">
+                      {selectedCompetency ? (
+                        <span>
+                          <span className="font-medium mr-2">
+                            {mockCompetencies.find((c) => c.id === selectedCompetency)?.code}
+                          </span>
+                          <span className="truncate">
+                            {mockCompetencies.find((c) => c.id === selectedCompetency)?.title}
+                          </span>
+                        </span>
+                      ) : null}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    {competencies.map((c) => (
+                    {filteredCompetencies.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.competency?.competencyCode ?? ""} — {c.competency?.competencyTitle ?? c.id}
+                        <span className="font-medium mr-2">{c.code}</span>
+                        <span className="truncate">{c.title}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="rating">Rating</Label>
-              <Input
-                id="rating"
-                placeholder="e.g., 4/5"
-                value={rating}
-                onChange={(e) => setRating(e.target.value)}
-                disabled={isFormDisabled}
-              />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="decision">Decision</Label>
-              <Select value={decision} onValueChange={(v) => setDecision(v as AssessmentAttempt["decision"])} disabled={isFormDisabled}>
-                <SelectTrigger id="decision">
-                  <SelectValue placeholder="Select a decision" />
-                </SelectTrigger>
-                <SelectContent>
-                  {decisions.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="space-y-4 border-t pt-4">
+              <h3 className="text-sm font-semibold">Evaluation Details</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Attempt *</Label>
+                  <Select value={attempt} onValueChange={(v) => setAttempt(v ?? "")} disabled={!selectedCompetency}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select attempt type">
+                        {attempt}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="First Attempt">First Attempt</SelectItem>
+                      <SelectItem value="Repeat">Repeat</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Rating *</Label>
+                  <Select value={rating} onValueChange={(v) => setRating(v ?? "")} disabled={!selectedCompetency || !attempt}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select rating">
+                        {rating === "M" ? "Meets Expectations (M)" : rating === "E" ? "Exceeds Expectations (E)" : rating === "N" ? "Needs Remediation (N)" : ""}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="M">Meets Expectations (M)</SelectItem>
+                      <SelectItem value="E">Exceeds Expectations (E)</SelectItem>
+                      <SelectItem value="N">Needs Remediation (N)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Decision</Label>
+                <Input value="Completed" disabled readOnly className="bg-muted" />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Remarks *</Label>
+                <textarea
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Enter final remarks for the selected students..."
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  disabled={!rating}
+                />
+              </div>
+              
+              <div className="text-xs text-muted-foreground pt-2">
+                Created At: {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </div>
             </div>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="remarks">Remarks</Label>
-              <textarea
-                id="remarks"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder="Enter your remarks..."
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                disabled={isFormDisabled}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="signature">Faculty Signature</Label>
-              <Input
-                id="signature"
-                placeholder="Enter your name"
-                value={signature}
-                onChange={(e) => setSignature(e.target.value)}
-                disabled={isFormDisabled}
-              />
-              <p className="text-xs text-muted-foreground">
-                Signing as {facultyName}
-              </p>
-            </div>
-
-            {submitStatus === "success" && (
-              <Alert>
-                <CheckCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Assessment submitted successfully. It is now waiting for student acknowledgement.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {submitStatus === "remediation" && (
-              <Alert className="border-orange-200 text-orange-800">
-                <RotateCcw className="h-4 w-4" />
-                <AlertDescription>
-                  Assessment marked as Needs Remediation. The student will review the feedback and a reattempt
-                  will be scheduled automatically.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {submitStatus === "error" && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  Submission failed. Please check your input and try again.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex flex-wrap gap-3">
-              <Button type="submit" disabled={isFormDisabled}>
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Assessment"
-                )}
-              </Button>
-              <Button type="button" variant="outline" disabled={isFormDisabled} onClick={handleSaveDraft}>
-                {isSavingDraft ? (
+          <DialogFooter className="flex items-center justify-end w-full border-t pt-4">
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSubmitting} className="mr-2">
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save Draft
-              </Button>
-              {(submitStatus === "success" || submitStatus === "remediation") && (
-                <Button type="button" variant="ghost" onClick={resetForm}>
-                  Evaluate another assessment
-                </Button>
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Submit Assessment
+                </>
               )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
