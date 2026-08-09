@@ -264,7 +264,7 @@ export default function AssessmentFormPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Subject *</Label>
-                  <Select value={selectedSubject} onValueChange={(v) => { setSelectedSubject(v); setSelectedTopic(""); setSelectedCompetency(""); }}>
+                  <Select value={selectedSubject} onValueChange={(v) => { setSelectedSubject(v ?? ""); setSelectedTopic(""); setSelectedCompetency(""); }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a subject">
                         {mockSubjects.find((s) => s.id === selectedSubject)?.name}
@@ -280,7 +280,7 @@ export default function AssessmentFormPage() {
                 
                 <div className="space-y-2">
                   <Label>Topic *</Label>
-                  <Select value={selectedTopic} onValueChange={(v) => { setSelectedTopic(v); setSelectedCompetency(""); }} disabled={!selectedSubject}>
+                  <Select value={selectedTopic} onValueChange={(v) => { setSelectedTopic(v ?? ""); setSelectedCompetency(""); }} disabled={!selectedSubject}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a topic">
                         {mockTopics.find((t) => t.id === selectedTopic)?.name}
@@ -297,7 +297,7 @@ export default function AssessmentFormPage() {
 
               <div className="space-y-2">
                 <Label>Competency *</Label>
-                <Select value={selectedCompetency} onValueChange={setSelectedCompetency} disabled={!selectedTopic}>
+                <Select value={selectedCompetency} onValueChange={(v) => setSelectedCompetency(v ?? "")} disabled={!selectedTopic}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a competency">
                       {selectedCompetency ? (
@@ -329,7 +329,7 @@ export default function AssessmentFormPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Attempt *</Label>
-                  <Select value={attempt} onValueChange={setAttempt} disabled={!selectedCompetency}>
+                  <Select value={attempt} onValueChange={(v) => setAttempt(v ?? "")} disabled={!selectedCompetency}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select attempt type">
                         {attempt}
@@ -344,7 +344,7 @@ export default function AssessmentFormPage() {
                 
                 <div className="space-y-2">
                   <Label>Rating *</Label>
-                  <Select value={rating} onValueChange={setRating} disabled={!selectedCompetency || !attempt}>
+                  <Select value={rating} onValueChange={(v) => setRating(v ?? "")} disabled={!selectedCompetency || !attempt}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select rating">
                         {rating === "M" ? "Meets Expectations (M)" : rating === "E" ? "Exceeds Expectations (E)" : rating === "N" ? "Needs Remediation (N)" : ""}
