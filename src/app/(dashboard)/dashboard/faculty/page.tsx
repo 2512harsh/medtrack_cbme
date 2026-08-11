@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, ClipboardCheck, TrendingUp, Clock, ClipboardList, BookOpen, BadgeCheck, ShieldCheck, ListChecks, Timer, ArrowRight } from "lucide-react";
+import { Users, ClipboardCheck, TrendingUp, Clock, ClipboardList, BookOpen, ShieldCheck, ListChecks, Timer, ArrowRight } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import Link from "next/link";
@@ -40,7 +40,6 @@ const quickActions: QuickActionItem[] = [
   { label: "Assigned Students", href: "/faculty/assigned-students", icon: <Users className="h-4 w-4" />, accent: "blue" },
   { label: "Assigned Competencies", href: "/faculty/assigned-competencies", icon: <BookOpen className="h-4 w-4" />, accent: "green" },
   { label: "Remediation Workflow", href: "/assessment/remediation-workflow", icon: <Timer className="h-4 w-4" />, accent: "orange" },
-  { label: "QR Attendance", href: "/faculty/qr-attendance", icon: <BadgeCheck className="h-4 w-4" />, accent: "purple" },
   { label: "Assessment History", href: "/faculty/assessment-history", icon: <ClipboardList className="h-4 w-4" />, accent: "primary" },
 ];
 

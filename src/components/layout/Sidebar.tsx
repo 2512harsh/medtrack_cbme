@@ -32,7 +32,7 @@ const navigation = [
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["Super Admin", "HOD", "Faculty", "Student"],
+    roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
   },
   {
     title: "Platform Admin",
@@ -42,7 +42,6 @@ const navigation = [
     children: [
       { title: "Institutions", href: "/super-admin/institutions", roles: ["Super Admin"] },
       { title: "Departments", href: "/super-admin/departments", roles: ["Super Admin"] },
-      { title: "HOD Accounts", href: "/super-admin/hod-accounts", roles: ["Super Admin"] },
       { title: "Competency Import", href: "/super-admin/competency-import", roles: ["Super Admin"] },
       { title: "Platform Monitoring", href: "/super-admin/monitoring", roles: ["Super Admin"] },
       { title: "LMS Integration", href: "/integrations/lms", roles: ["Super Admin"] },
@@ -55,41 +54,40 @@ const navigation = [
     title: "Curriculum",
     href: "/curriculum",
     icon: BookOpen,
-    roles: ["Super Admin", "HOD", "Faculty", "Student"],
+    roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
     children: [
       { title: "Streams", href: "/curriculum/streams", roles: ["Super Admin"] },
-      { title: "Professional Years", href: "/curriculum/professional-years", roles: ["Super Admin", "HOD"] },
-      { title: "Subjects", href: "/curriculum/subjects", roles: ["Super Admin", "HOD", "Faculty", "Student"] },
-      { title: "Topics", href: "/curriculum/topics", roles: ["Super Admin", "HOD", "Faculty", "Student"] },
-      { title: "Competencies", href: "/curriculum/competencies", roles: ["Super Admin", "HOD", "Faculty", "Student"] },
-      { title: "Question Templates", href: "/curriculum/templates", roles: ["Super Admin", "HOD"] },
+      { title: "Professional Years", href: "/curriculum/professional-years", roles: ["Super Admin", "Dean", "HOD"] },
+      { title: "Subjects", href: "/curriculum/subjects", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
+      { title: "Topics", href: "/curriculum/topics", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
+      { title: "Competencies", href: "/curriculum/competencies", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
+      { title: "Question Templates", href: "/curriculum/templates", roles: ["Super Admin", "Dean", "HOD"] },
       { title: "Excel Import", href: "/curriculum/import", roles: ["Super Admin"] },
     ],
   },
   {
     title: "Faculty",
-    href: "/hod/faculty",
+    href: "/dean/faculty",
     icon: Users,
-    roles: ["Super Admin", "HOD"],
+    roles: ["Super Admin", "Dean", "HOD", "Faculty"],
     children: [
-      { title: "Faculty Management", href: "/hod/faculty", roles: ["HOD"] },
+      { title: "Faculty Management", href: "/dean/faculty", roles: ["Dean", "HOD"] },
       { title: "Assigned Students", href: "/faculty/assigned-students", roles: ["Faculty"] },
       { title: "Assigned Competencies", href: "/faculty/assigned-competencies", roles: ["Faculty"] },
       { title: "Assessment Queue", href: "/faculty/assessment-queue", roles: ["Faculty"] },
       { title: "Assessment Form", href: "/faculty/assessment-form", roles: ["Faculty"] },
-      { title: "QR Attendance", href: "/faculty/qr-attendance", roles: ["Faculty"] },
     ],
   },
   {
     title: "Students",
-    href: "/hod/students",
+    href: "/dean/students",
     icon: GraduationCap,
-    roles: ["Super Admin", "HOD", "Faculty", "Student"],
+    roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
     children: [
-      { title: "Student Management", href: "/hod/students", roles: ["HOD"] },
-      { title: "Student Import", href: "/hod/students/import", roles: ["HOD"] },
-      { title: "Student Allocation", href: "/hod/allocations", roles: ["HOD"] },
-      { title: "Allocation History", href: "/hod/allocation-history", roles: ["HOD"] },
+      { title: "Student Management", href: "/dean/students", roles: ["Dean", "HOD"] },
+      { title: "Student Import", href: "/dean/students/import", roles: ["Dean", "HOD"] },
+      { title: "Student Allocation", href: "/dean/allocations", roles: ["Dean", "HOD"] },
+      { title: "Allocation History", href: "/dean/allocation-history", roles: ["Dean", "HOD"] },
       { title: "My Competencies", href: "/student/my-competencies", roles: ["Student"] },
       { title: "My Progress", href: "/student/progress", roles: ["Student"] },
       { title: "Evidence Upload", href: "/student/evidence", roles: ["Student"] },
@@ -99,11 +97,11 @@ const navigation = [
     title: "Assessments",
     href: "/assessment/attempt-timeline",
     icon: ClipboardList,
-    roles: ["HOD", "Faculty", "Student"],
+    roles: ["Dean", "HOD", "Faculty", "Student"],
     children: [
       { title: "Assessment History", href: "/student/assessment-history", roles: ["Student"] },
       { title: "Assessment History", href: "/faculty/assessment-history", roles: ["Faculty"] },
-      { title: "Remediation", href: "/assessment/remediation-workflow", roles: ["Faculty", "HOD"] },
+      { title: "Remediation", href: "/assessment/remediation-workflow", roles: ["Faculty", "Dean", "HOD"] },
       { title: "Feedback", href: "/student/feedback", roles: ["Student"] },
       { title: "Acknowledgement", href: "/student/acknowledgement", roles: ["Student"] },
     ],
@@ -112,40 +110,40 @@ const navigation = [
     title: "Reports",
     href: "/reports/student-report",
     icon: BarChart3,
-    roles: ["Super Admin", "HOD", "Faculty", "Student"],
+    roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
     children: [
-      { title: "Student Report", href: "/reports/student-report", roles: ["HOD", "Faculty", "Student"] },
-      { title: "Faculty Report", href: "/reports/faculty-report", roles: ["HOD", "Faculty"] },
-      { title: "Department Report", href: "/reports/department-report", roles: ["HOD", "Super Admin"] },
-      { title: "Competency Completion", href: "/reports/competency-completion", roles: ["HOD", "Faculty"] },
-      { title: "Remediation Report", href: "/reports/remediation-report", roles: ["HOD", "Faculty"] },
-      { title: "Audit Report", href: "/reports/audit-report", roles: ["Super Admin", "HOD"] },
+      { title: "Student Report", href: "/reports/student-report", roles: ["Dean", "HOD", "Faculty", "Student"] },
+      { title: "Faculty Report", href: "/reports/faculty-report", roles: ["Dean", "HOD", "Faculty"] },
+      { title: "Department Report", href: "/reports/department-report", roles: ["Dean", "HOD", "Super Admin"] },
+      { title: "Competency Completion", href: "/reports/competency-completion", roles: ["Dean", "HOD", "Faculty"] },
+      { title: "Remediation Report", href: "/reports/remediation-report", roles: ["Dean", "HOD", "Faculty"] },
+      { title: "Audit Report", href: "/reports/audit-report", roles: ["Super Admin", "Dean", "HOD"] },
     ],
   },
   {
-    title: "HOD Management",
-    href: "/hod/faculty-assignment",
+    title: "Dean Management",
+    href: "/dean/faculty-assignment",
     icon: UserCheck,
-    roles: ["HOD"],
+    roles: ["Dean", "HOD"],
     children: [
-      { title: "Faculty Assignment", href: "/hod/faculty-assignment", roles: ["HOD"] },
-      { title: "Competency Assignment", href: "/hod/competency-assignment", roles: ["HOD"] },
-      { title: "Department Progress", href: "/hod/progress", roles: ["HOD"] },
+      { title: "Faculty Assignment", href: "/dean/faculty-assignment", roles: ["Dean", "HOD"] },
+      { title: "Competency Assignment", href: "/dean/competency-assignment", roles: ["Dean", "HOD"] },
+      { title: "Department Progress", href: "/dean/progress", roles: ["Dean", "HOD"] },
     ],
   },
   {
     title: "Notifications",
     href: "/assessment/notifications",
     icon: Bell,
-    roles: ["Super Admin", "HOD", "Faculty", "Student"],
+    roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
   },
   {
     title: "Settings",
     href: "/settings/profile",
     icon: Settings,
-    roles: ["Super Admin", "HOD", "Faculty", "Student"],
+    roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
     children: [
-      { title: "Profile", href: "/settings/profile", roles: ["Super Admin", "HOD", "Faculty", "Student"] },
+      { title: "Profile", href: "/settings/profile", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
     ],
   },
 ];
@@ -166,6 +164,9 @@ function NavItem({
   const hasAccess = item.roles.includes(userRole || "");
   if (!hasAccess) return null;
 
+  const displayTitle =
+    item.title === "Dean Management" && userRole === "HOD" ? "HOD Management" : item.title;
+
   const isChildActive = item.children?.some((c) => {
     if (c.href.includes("[id]")) {
       const basePath = c.href.replace("/[id]", "");
@@ -177,37 +178,53 @@ function NavItem({
   const isActive = pathname === item.href || isChildActive;
   const hasChildren = item.children && item.children.some((c) => c.roles.includes(userRole || ""));
 
+  // Some sections list a role at the top level for visibility even though none of
+  // their children apply to it (e.g. "Students" lists Faculty/Super Admin, but every
+  // child there is Dean/HOD/Student-only). With no reachable child, there's nothing
+  // to show and the group's own href is often role-restricted - hide it entirely
+  // rather than falling through to a link that would 403.
+  if (item.children && !hasChildren) {
+    return null;
+  }
+
   if (hasChildren) {
-    const parentLink =
-      item.href === "/curriculum" ? (
-        <span
-          className={cn(
-            "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors",
-            isActive
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-        >
-          <item.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-          <span>{item.title}</span>
-          {isMobile && <ChevronRight className="ml-auto h-4 w-4" />}
-        </span>
-      ) : (
-        <Link
-          href={item.href}
-          onClick={onNavigate}
-          className={cn(
-            "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors",
-            isActive
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground hover:bg-accent"
-          )}
-        >
-          <item.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-          <span>{item.title}</span>
-          {isMobile && <ChevronRight className="ml-auto h-4 w-4" />}
-        </Link>
-      );
+    // The parent href is often only valid for a subset of the roles that can see
+    // this section (e.g. "/dean/students" is Dean/HOD-only, but Faculty/Student can
+    // also see the "Students" section for their own child links). Only make the
+    // header itself clickable when one of the visible children actually points there
+    // - otherwise it's just a non-interactive grouping label.
+    const parentHrefIsNavigable = item.children?.some(
+      (c) => c.roles.includes(userRole || "") && c.href === item.href
+    );
+    const parentLink = parentHrefIsNavigable ? (
+      <Link
+        href={item.href}
+        onClick={onNavigate}
+        className={cn(
+          "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors",
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        )}
+      >
+        <item.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        <span>{displayTitle}</span>
+        {isMobile && <ChevronRight className="ml-auto h-4 w-4" />}
+      </Link>
+    ) : (
+      <span
+        className={cn(
+          "flex items-center gap-2 px-2 py-1.5 rounded-md text-sm font-medium transition-colors",
+          isActive
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+        )}
+      >
+        <item.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+        <span>{displayTitle}</span>
+        {isMobile && <ChevronRight className="ml-auto h-4 w-4" />}
+      </span>
+    );
     return (
       <div className="space-y-0.5">
         {parentLink}
@@ -252,7 +269,7 @@ function NavItem({
       )}
     >
       <item.icon className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
-      <span>{item.title}</span>
+      <span>{displayTitle}</span>
     </Link>
   );
 }

@@ -18,8 +18,8 @@ const SHARED_PREFIXES = [
 const ROLE_PREFIXES: { prefix: string; roles: UserRole[] }[] = [
   { prefix: "/super-admin", roles: ["Super Admin"] },
   { prefix: "/dashboard/super-admin", roles: ["Super Admin"] },
-  { prefix: "/hod", roles: ["HOD"] },
-  { prefix: "/dashboard/hod", roles: ["HOD"] },
+  { prefix: "/dean", roles: ["Dean", "HOD"] },
+  { prefix: "/dashboard/dean", roles: ["Dean", "HOD"] },
   { prefix: "/faculty", roles: ["Faculty"] },
   { prefix: "/dashboard/faculty", roles: ["Faculty"] },
   { prefix: "/student", roles: ["Student"] },
@@ -28,10 +28,18 @@ const ROLE_PREFIXES: { prefix: string; roles: UserRole[] }[] = [
 
 const DASHBOARD_ROUTE: Record<UserRole, string> = {
   "Super Admin": "/dashboard/super-admin",
-  HOD: "/dashboard/hod",
+  Dean: "/dashboard/dean",
+  HOD: "/dashboard/dean",
   Faculty: "/dashboard/faculty",
   Student: "/dashboard/student",
 };
+
+// Legacy /hod/* links redirect to their /dean/* equivalents (the department-scoped
+// pages are shared by both the Dean and HOD roles).
+const LEGACY_REDIRECTS: { from: string; to: string }[] = [
+  { from: "/dashboard/hod", to: "/dashboard/dean" },
+  { from: "/hod", to: "/dean" },
+];
 
 function decodeRole(token: string | undefined): UserRole | null {
   if (!token || !token.startsWith("mock-jwt-token-")) {
@@ -45,6 +53,15 @@ function decodeRole(token: string | undefined): UserRole | null {
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Legacy /hod/* links redirect to their /dean/* equivalents.
+  for (const { from, to } of LEGACY_REDIRECTS) {
+    if (pathname === from || pathname.startsWith(`${from}/`)) {
+      const newUrl = new URL(pathname.replace(from, to) + request.nextUrl.search, request.url);
+      return NextResponse.redirect(newUrl);
+    }
+  }
+
   const role = decodeRole(request.cookies.get("medtrack_token")?.value);
 
   const loginUrl = new URL("/login", request.url);

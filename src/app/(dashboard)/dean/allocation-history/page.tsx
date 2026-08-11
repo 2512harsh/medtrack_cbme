@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
-import { getAllocationHistory } from "@/features/hod/services/hod";
+import { getAllocationHistory } from "@/features/dean/services/dean";
 import { ColumnDef } from "@tanstack/react-table";
 import { AsyncContent } from "@/components/shared/AsyncContent";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 import type { StudentAllocation } from "@/types";
 
 type AllocationHistoryRow = {
@@ -53,8 +54,8 @@ const columns: ColumnDef<AppTableFeatures, AllocationHistoryRow>[] = [
   },
 ];
 
-async function getHistoryData(): Promise<AllocationHistoryRow[]> {
-  const allocations = await getAllocationHistory();
+async function getHistoryData(departmentId?: string): Promise<AllocationHistoryRow[]> {
+  const allocations = await getAllocationHistory(departmentId);
   return allocations.map((a: StudentAllocation) => ({
     id: a.id,
     studentName: a.student
@@ -70,6 +71,8 @@ async function getHistoryData(): Promise<AllocationHistoryRow[]> {
 }
 
 export default function AllocationHistoryPage() {
+  const { user } = useAuth();
+  const departmentId = user?.departmentId;
   const [data, setData] = useState<AllocationHistoryRow[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -78,7 +81,7 @@ export default function AllocationHistoryPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const history = await getHistoryData();
+      const history = await getHistoryData(departmentId);
       setData(history);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load allocation history"));
@@ -89,7 +92,8 @@ export default function AllocationHistoryPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departmentId]);
 
   return (
     <div className="space-y-6">

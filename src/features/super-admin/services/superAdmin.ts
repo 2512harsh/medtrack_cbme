@@ -2,11 +2,13 @@ import type { Institution, Department, UserSummary } from "@/types";
 import {
   mockInstitutions,
   mockDepartments,
+  mockDeanAccounts,
   mockHodAccounts,
   mockPlatformMetrics,
   mockRecentActivity,
   mockSystemSettings,
   mockCompetencyImportRecords,
+  DeanAccount,
   HodAccount,
 } from "../mock/superAdmin";
 
@@ -96,6 +98,28 @@ export function setDepartmentStatus(id: string, status: "ACTIVE" | "INACTIVE"): 
   return updateDepartment(id, { status });
 }
 
+export function getDeanAccounts(): Promise<DeanAccount[]> {
+  return Promise.resolve(mockDeanAccounts);
+}
+
+export function createDeanAccount(
+  data: Pick<UserSummary, "firstName" | "lastName" | "email" | "departmentId"> & {
+    password: string;
+  }
+): Promise<DeanAccount> {
+  const now = new Date().toISOString();
+  const account: DeanAccount = {
+    ...data,
+    id: `user-dean-${Date.now()}`,
+    role: "Dean",
+    status: "ACTIVE",
+    createdAt: now,
+    updatedAt: now,
+  };
+  mockDeanAccounts.push(account);
+  return Promise.resolve(account);
+}
+
 export function getHodAccounts(): Promise<HodAccount[]> {
   return Promise.resolve(mockHodAccounts);
 }
@@ -118,22 +142,10 @@ export function createHodAccount(
   return Promise.resolve(account);
 }
 
-export function setHodAccountStatus(id: string, status: "ACTIVE" | "INACTIVE"): Promise<HodAccount> {
-  const index = mockHodAccounts.findIndex((a) => a.id === id);
-  if (index === -1) {
-    return Promise.reject(new Error("HOD account not found"));
-  }
-  mockHodAccounts[index] = {
-    ...mockHodAccounts[index],
-    status,
-    updatedAt: new Date().toISOString(),
-  };
-  return Promise.resolve(mockHodAccounts[index]);
-}
-
 export function getDashboardStats(): Promise<{
   totalInstitutions: number;
   totalDepartments: number;
+  activeDeans: number;
   activeHods: number;
   platformHealth: string;
   institutions: Institution[];
@@ -142,6 +154,7 @@ export function getDashboardStats(): Promise<{
   return Promise.resolve({
     totalInstitutions: mockInstitutions.length,
     totalDepartments: mockDepartments.length,
+    activeDeans: mockDeanAccounts.filter((a) => a.status === "ACTIVE").length,
     activeHods: mockHodAccounts.filter((a) => a.status === "ACTIVE").length,
     platformHealth: mockPlatformMetrics.uptime,
     institutions: mockInstitutions,
@@ -193,4 +206,4 @@ export function createCompetencyImport(data: {
   return Promise.resolve(record);
 }
 
-export type { HodAccount };
+export type { DeanAccount, HodAccount };

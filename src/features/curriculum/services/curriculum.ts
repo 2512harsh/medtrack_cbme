@@ -5,6 +5,16 @@ export async function getStreams() {
   return mockStreams;
 }
 
+export async function createStream(data: { name: string }) {
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const stream = {
+    id: `stream-${Date.now()}`,
+    name: data.name,
+  };
+  mockStreams.push(stream);
+  return stream;
+}
+
 export async function getProfessionalYears(streamId?: string) {
   await new Promise((resolve) => setTimeout(resolve, 300));
   if (streamId) {

@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -61,6 +60,7 @@ export default function AssessmentFormPage() {
   const [selectedCompetency, setSelectedCompetency] = useState("");
   const [attempt, setAttempt] = useState("First Attempt");
   const [rating, setRating] = useState("");
+  const [decision, setDecision] = useState("");
   const [remarks, setRemarks] = useState("");
 
   const fetchData = async () => {
@@ -152,7 +152,7 @@ export default function AssessmentFormPage() {
   ];
 
   const handleSubmit = async () => {
-    if (!selectedSubject || !selectedTopic || !selectedCompetency || !attempt || !rating || !remarks) {
+    if (!selectedSubject || !selectedTopic || !selectedCompetency || !attempt || !rating || !decision) {
       toast.error("Please complete all required fields");
       return;
     }
@@ -173,6 +173,7 @@ export default function AssessmentFormPage() {
       setSelectedCompetency("");
       setAttempt("First Attempt");
       setRating("");
+      setDecision("");
       setRemarks("");
       
     } catch (err) {
@@ -261,9 +262,9 @@ export default function AssessmentFormPage() {
 
             <div className="space-y-4 border-t pt-4">
               <h3 className="text-sm font-semibold">Competency Selection</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Subject *</Label>
+                  <Label>Topic *</Label>
                   <Select value={selectedSubject} onValueChange={(v) => { setSelectedSubject(v ?? ""); setSelectedTopic(""); setSelectedCompetency(""); }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a subject">
@@ -279,7 +280,7 @@ export default function AssessmentFormPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Topic *</Label>
+                  <Label>Sub-Topic *</Label>
                   <Select value={selectedTopic} onValueChange={(v) => { setSelectedTopic(v ?? ""); setSelectedCompetency(""); }} disabled={!selectedSubject}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a topic">
@@ -326,7 +327,7 @@ export default function AssessmentFormPage() {
 
             <div className="space-y-4 border-t pt-4">
               <h3 className="text-sm font-semibold">Evaluation Details</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Attempt *</Label>
                   <Select value={attempt} onValueChange={(v) => setAttempt(v ?? "")} disabled={!selectedCompetency}>
@@ -360,12 +361,22 @@ export default function AssessmentFormPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Decision</Label>
-                <Input value="Completed" disabled readOnly className="bg-muted" />
+                <Label>Decision *</Label>
+                <Select value={decision} onValueChange={(v) => setDecision(v ?? "")} disabled={!rating}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select decision">
+                      {decision || undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="Not Completed">Not Completed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Remarks *</Label>
+                <Label>Remarks</Label>
                 <textarea
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Enter final remarks for the selected students..."
@@ -381,11 +392,11 @@ export default function AssessmentFormPage() {
             </div>
           </div>
 
-          <DialogFooter className="flex items-center justify-end w-full border-t pt-4">
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSubmitting} className="mr-2">
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSubmitting} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:w-auto">
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

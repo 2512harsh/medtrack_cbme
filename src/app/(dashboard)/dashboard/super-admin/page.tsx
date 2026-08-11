@@ -24,6 +24,7 @@ interface DashboardData {
   stats: {
     totalInstitutions: string;
     totalDepartments: string;
+    activeDeans: string;
     activeHods: string;
     platformHealth: string;
   };
@@ -32,7 +33,6 @@ interface DashboardData {
 const quickActions: QuickActionItem[] = [
   { label: "Manage Institutions", href: "/super-admin/institutions", icon: <Landmark className="h-4 w-4" />, accent: "primary" },
   { label: "Manage Departments", href: "/super-admin/departments", icon: <Building className="h-4 w-4" />, accent: "blue" },
-  { label: "Create HOD Account", href: "/super-admin/hod-accounts", icon: <UserCheck className="h-4 w-4" />, accent: "green" },
   { label: "Import Competency Library", href: "/super-admin/competency-import", icon: <FileText className="h-4 w-4" />, accent: "orange" },
   { label: "Platform Monitoring", href: "/super-admin/monitoring", icon: <Gauge className="h-4 w-4" />, accent: "purple" },
   { label: "System Settings", href: "/super-admin/system-settings", icon: <ShieldCheck className="h-4 w-4" />, accent: "primary" },
@@ -59,6 +59,7 @@ export default function SuperAdminDashboard() {
         stats: {
           totalInstitutions: String(stats.totalInstitutions),
           totalDepartments: String(stats.totalDepartments),
+          activeDeans: String(stats.activeDeans),
           activeHods: String(stats.activeHods),
           platformHealth: stats.platformHealth,
         },
@@ -111,6 +112,7 @@ export default function SuperAdminDashboard() {
             <IdentityItem label="Platform" value="MedTrack CBME" />
             <IdentityItem label="Total Institutions" value={data.stats.totalInstitutions} />
             <IdentityItem label="Total Departments" value={data.stats.totalDepartments} />
+            <IdentityItem label="Active Deans" value={data.stats.activeDeans} />
             <IdentityItem label="Active HODs" value={data.stats.activeHods} />
             <IdentityItem label="Platform Health" value={data.stats.platformHealth} />
           </>
@@ -121,7 +123,7 @@ export default function SuperAdminDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard label="Total Institutions" value={data.stats.totalInstitutions} icon={<Landmark className="h-5 w-5" />} color="blue" trend="+2 this month" trendUp />
         <MetricCard label="Total Departments" value={data.stats.totalDepartments} icon={<Building className="h-5 w-5" />} color="green" trend="+5 this month" trendUp />
-        <MetricCard label="Active HODs" value={data.stats.activeHods} icon={<UserCheck className="h-5 w-5" />} color="purple" trend="+3 this month" trendUp />
+        <MetricCard label="Active Deans" value={data.stats.activeDeans} icon={<UserCheck className="h-5 w-5" />} color="purple" trend="+3 this month" trendUp />
         <MetricCard label="Platform Health" value={data.stats.platformHealth} icon={<TrendingUp className="h-5 w-5" />} color="orange" sub="Stable" />
         <MetricCard label="Institutions Active" value={institutions.filter((i) => i.status === "ACTIVE").length} icon={<Building2 className="h-5 w-5" />} color="green" sub="Across platform" />
         <MetricCard label="Avg Departments" value={Math.round(Number(data.stats.totalDepartments) / Math.max(Number(data.stats.totalInstitutions), 1))} icon={<Users className="h-5 w-5" />} color="yellow" sub="Per institution" />

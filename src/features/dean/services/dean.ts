@@ -4,27 +4,50 @@ import {
   mockStudents,
   mockStudentAllocations,
   mockCompetencyAssignments,
-  mockDepartment,
-} from "@/features/hod/mock/hod";
+} from "@/features/dean/mock/dean";
+import { mockDepartments } from "@/features/super-admin/mock/superAdmin";
+import { mockSubjects } from "@/features/curriculum/mock/curriculum";
 
 export function getDepartments(): Promise<Department[]> {
-  return Promise.resolve([mockDepartment]);
+  return Promise.resolve(mockDepartments);
 }
 
-export function getFaculty(): Promise<Faculty[]> {
-  return Promise.resolve(mockFaculty);
+export function getDepartmentById(id: string): Promise<Department | undefined> {
+  return Promise.resolve(mockDepartments.find((d) => d.id === id));
 }
 
-export function getStudents(): Promise<Student[]> {
-  return Promise.resolve(mockStudents);
+export function getFaculty(departmentId?: string): Promise<Faculty[]> {
+  if (!departmentId) {
+    return Promise.resolve(mockFaculty);
+  }
+  return Promise.resolve(mockFaculty.filter((f) => f.departmentId === departmentId));
 }
 
-export function getStudentAllocations(): Promise<StudentAllocation[]> {
-  return Promise.resolve(mockStudentAllocations);
+export function getStudents(departmentId?: string): Promise<Student[]> {
+  if (!departmentId) {
+    return Promise.resolve(mockStudents);
+  }
+  return Promise.resolve(mockStudents.filter((s) => s.user?.departmentId === departmentId));
 }
 
-export function getCompetencyAssignments(): Promise<CompetencyAssignment[]> {
-  return Promise.resolve(mockCompetencyAssignments);
+export function getStudentAllocations(departmentId?: string): Promise<StudentAllocation[]> {
+  if (!departmentId) {
+    return Promise.resolve(mockStudentAllocations);
+  }
+  const deptFacultyIds = new Set(
+    mockFaculty.filter((f) => f.departmentId === departmentId).map((f) => f.id)
+  );
+  return Promise.resolve(mockStudentAllocations.filter((a) => deptFacultyIds.has(a.facultyId)));
+}
+
+export function getCompetencyAssignments(departmentId?: string): Promise<CompetencyAssignment[]> {
+  if (!departmentId) {
+    return Promise.resolve(mockCompetencyAssignments);
+  }
+  const deptFacultyIds = new Set(
+    mockFaculty.filter((f) => f.departmentId === departmentId).map((f) => f.id)
+  );
+  return Promise.resolve(mockCompetencyAssignments.filter((a) => deptFacultyIds.has(a.facultyId)));
 }
 
 export function getFacultyById(id: string): Promise<Faculty | undefined> {
@@ -39,7 +62,7 @@ export function getStudentAllocationById(id: string): Promise<StudentAllocation 
   return Promise.resolve(mockStudentAllocations.find((a) => a.id === id));
 }
 
-export function getAllocationHistory(): Promise<StudentAllocation[]> {
+export function getAllocationHistory(departmentId?: string): Promise<StudentAllocation[]> {
   const history = [
     ...mockStudentAllocations,
     ...mockStudentAllocations.slice(0, 2).map((a, i) => ({
@@ -51,7 +74,13 @@ export function getAllocationHistory(): Promise<StudentAllocation[]> {
       allocatedDate: "2024-05-15T00:00:00Z",
     })),
   ];
-  return Promise.resolve(history);
+  if (!departmentId) {
+    return Promise.resolve(history);
+  }
+  const deptFacultyIds = new Set(
+    mockFaculty.filter((f) => f.departmentId === departmentId).map((f) => f.id)
+  );
+  return Promise.resolve(history.filter((a) => deptFacultyIds.has(a.facultyId)));
 }
 
 export function getCompetencyAssignmentById(id: string): Promise<CompetencyAssignment | undefined> {
@@ -151,10 +180,21 @@ export function assignCompetency(data: Omit<CompetencyAssignment, "id" | "assign
   return Promise.resolve(newAssignment);
 }
 
-export function getDepartmentProgress(): Promise<{ subject: string; completed: number; total: number }[]> {
-  return Promise.resolve([
-    { subject: "Anatomy", completed: 45, total: 60 },
-    { subject: "Physiology", completed: 38, total: 55 },
-    { subject: "Biochemistry", completed: 42, total: 58 },
-  ]);
+const subjectProgressBaseline: Record<string, { completed: number; total: number }> = {
+  "sub-1": { completed: 45, total: 60 },
+  "sub-2": { completed: 38, total: 55 },
+  "sub-3": { completed: 42, total: 58 },
+};
+
+export function getDepartmentProgress(departmentId?: string): Promise<{ subject: string; completed: number; total: number }[]> {
+  const subjects = departmentId
+    ? mockSubjects.filter((s) => s.departmentId === departmentId)
+    : mockSubjects;
+
+  return Promise.resolve(
+    subjects.map((s) => ({
+      subject: s.name,
+      ...(subjectProgressBaseline[s.id] ?? { completed: 0, total: 0 }),
+    }))
+  );
 }

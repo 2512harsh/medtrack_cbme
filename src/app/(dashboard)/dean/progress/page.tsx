@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDepartmentProgress } from "@/features/hod/services/hod";
+import { getDepartmentProgress } from "@/features/dean/services/dean";
 import { AsyncContent } from "@/components/shared/AsyncContent";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 
 interface ProgressItem {
   subject: string;
@@ -34,6 +35,8 @@ function ProgressBar({ completed, total, color }: { completed: number; total: nu
 }
 
 export default function DepartmentProgressPage() {
+  const { user } = useAuth();
+  const departmentId = user?.departmentId;
   const [progress, setProgress] = useState<ProgressItem[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -42,7 +45,7 @@ export default function DepartmentProgressPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getDepartmentProgress();
+      const data = await getDepartmentProgress(departmentId);
       setProgress(data);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load department progress"));
@@ -53,7 +56,8 @@ export default function DepartmentProgressPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departmentId]);
 
   return (
     <div className="space-y-6">

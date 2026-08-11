@@ -1,4 +1,4 @@
-export type UserRole = "Super Admin" | "HOD" | "Faculty" | "Student";
+export type UserRole = "Super Admin" | "Dean" | "HOD" | "Faculty" | "Student";
 
 export type UserStatus = "ACTIVE" | "INACTIVE";
 
@@ -34,6 +34,7 @@ export interface Department {
   institutionId: string;
   name: string;
   description?: string;
+  deanId?: string;
   hodId?: string;
   status?: "ACTIVE" | "INACTIVE";
   createdAt: string;

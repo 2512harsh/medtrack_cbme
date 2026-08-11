@@ -1,5 +1,9 @@
 import type { Institution, Department, UserSummary } from "@/types";
 
+export interface DeanAccount extends UserSummary {
+  password?: string;
+}
+
 export interface HodAccount extends UserSummary {
   password?: string;
 }
@@ -83,7 +87,8 @@ export const mockDepartments: Department[] = [
     institutionId: "inst-1",
     name: "Anatomy",
     description: "Department of Anatomy",
-    hodId: "user-2",
+    deanId: "user-2",
+    hodId: "user-hod-1",
     status: "ACTIVE",
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z",
@@ -93,6 +98,7 @@ export const mockDepartments: Department[] = [
     institutionId: "inst-1",
     name: "Physiology",
     description: "Department of Physiology",
+    deanId: "user-dean-2",
     hodId: "user-hod-2",
     status: "ACTIVE",
     createdAt: "2024-01-01T00:00:00Z",
@@ -103,7 +109,7 @@ export const mockDepartments: Department[] = [
     institutionId: "inst-1",
     name: "Biochemistry",
     description: "Department of Biochemistry",
-    hodId: "user-hod-3",
+    deanId: "user-dean-3",
     status: "ACTIVE",
     createdAt: "2024-01-01T00:00:00Z",
     updatedAt: "2024-01-01T00:00:00Z",
@@ -122,57 +128,82 @@ export const mockDepartments: Department[] = [
     institutionId: "inst-3",
     name: "Physiology",
     description: "Department of Physiology",
-    hodId: "user-hod-5",
+    deanId: "user-dean-5",
     status: "INACTIVE",
     createdAt: "2024-03-01T00:00:00Z",
     updatedAt: "2024-07-01T00:00:00Z",
   },
 ];
 
-export const mockHodAccounts: HodAccount[] = [
+export const mockDeanAccounts: DeanAccount[] = [
   {
     id: "user-2",
     firstName: "Prof. Meera",
     lastName: "Reddy",
-    email: "hod.anatomy@medtrack.edu",
-    role: "HOD",
+    email: "dean.anatomy@medtrack.edu",
+    role: "Dean",
     status: "ACTIVE",
     departmentId: "dept-1",
     createdAt: "2024-01-20T10:00:00Z",
     updatedAt: "2024-01-20T10:00:00Z",
   },
   {
-    id: "user-hod-2",
+    id: "user-dean-2",
     firstName: "Dr. Venkatesh",
     lastName: "Iyer",
-    email: "hod.physiology@medtrack.edu",
-    role: "HOD",
+    email: "dean.physiology@medtrack.edu",
+    role: "Dean",
     status: "ACTIVE",
     departmentId: "dept-2",
     createdAt: "2024-02-10T10:00:00Z",
     updatedAt: "2024-02-10T10:00:00Z",
   },
   {
-    id: "user-hod-3",
+    id: "user-dean-3",
     firstName: "Dr. Sana",
     lastName: "Khan",
-    email: "hod.biochemistry@medtrack.edu",
-    role: "HOD",
+    email: "dean.biochemistry@medtrack.edu",
+    role: "Dean",
     status: "ACTIVE",
     departmentId: "dept-3",
     createdAt: "2024-02-18T10:00:00Z",
     updatedAt: "2024-02-18T10:00:00Z",
   },
   {
-    id: "user-hod-5",
+    id: "user-dean-5",
     firstName: "Dr. Rakesh",
     lastName: "Nair",
-    email: "hod.physiology.pgi@medtrack.edu",
-    role: "HOD",
+    email: "dean.physiology.pgi@medtrack.edu",
+    role: "Dean",
     status: "INACTIVE",
     departmentId: "dept-5",
     createdAt: "2024-03-01T10:00:00Z",
     updatedAt: "2024-07-01T10:00:00Z",
+  },
+];
+
+export const mockHodAccounts: HodAccount[] = [
+  {
+    id: "user-hod-1",
+    firstName: "Dr. Ashok",
+    lastName: "Verma",
+    email: "hod.anatomy@medtrack.edu",
+    role: "HOD",
+    status: "ACTIVE",
+    departmentId: "dept-1",
+    createdAt: "2024-01-22T10:00:00Z",
+    updatedAt: "2024-01-22T10:00:00Z",
+  },
+  {
+    id: "user-hod-2",
+    firstName: "Dr. Kavita",
+    lastName: "Rao",
+    email: "hod.physiology@medtrack.edu",
+    role: "HOD",
+    status: "ACTIVE",
+    departmentId: "dept-2",
+    createdAt: "2024-02-12T10:00:00Z",
+    updatedAt: "2024-02-12T10:00:00Z",
   },
 ];
 
@@ -194,9 +225,9 @@ export const mockRecentActivity = [
   {
     id: "act-1",
     user: "Dr. Anand Sharma",
-    action: "Created HOD account",
-    entity: "HOD Account",
-    entityId: "user-hod-6",
+    action: "Created Dean account",
+    entity: "Dean Account",
+    entityId: "user-dean-6",
     ipAddress: "10.0.0.14",
     createdAt: "2026-08-06T11:32:00Z",
   },

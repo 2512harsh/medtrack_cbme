@@ -137,6 +137,7 @@ export function LoginForm() {
               <p>Demo credentials:</p>
               <div className="mt-2 space-y-1 text-left max-w-xs mx-auto p-3 bg-muted rounded-md text-xs font-mono">
                 <div><strong>Super Admin:</strong> superadmin@medtrack.edu / password123</div>
+                <div><strong>Dean:</strong> dean.anatomy@medtrack.edu / password123</div>
                 <div><strong>HOD:</strong> hod.anatomy@medtrack.edu / password123</div>
                 <div><strong>Faculty:</strong> faculty.physiology@medtrack.edu / password123</div>
                 <div><strong>Student:</strong> student2024001@medtrack.edu / password123</div>

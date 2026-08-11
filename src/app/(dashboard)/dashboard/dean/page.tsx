@@ -4,6 +4,12 @@ import React, { useState, useEffect } from "react";
 import { Users, GraduationCap, ClipboardCheck, TrendingUp, AlertTriangle, Activity, UserCheck, BookOpen, BarChart3, ShieldAlert, FileBarChart } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
+import {
+  getDepartmentById,
+  getFaculty,
+  getStudents,
+  getDepartmentProgress,
+} from "@/features/dean/services/dean";
 import Link from "next/link";
 import {
   DashboardGrid,
@@ -21,6 +27,7 @@ import {
 import type { ActivityItem, QuickActionItem } from "@/components/dashboard";
 
 interface DashboardData {
+  departmentName: string;
   stats: {
     totalFaculty: string;
     totalStudents: string;
@@ -37,41 +44,61 @@ interface DashboardData {
   activity: ActivityItem[];
 }
 
-const quickActions: QuickActionItem[] = [
-  { label: "Faculty Management", href: "/hod/faculty", icon: <Users className="h-4 w-4" />, accent: "primary" },
-  { label: "Student Management", href: "/hod/students", icon: <GraduationCap className="h-4 w-4" />, accent: "blue" },
-  { label: "Student Allocation", href: "/hod/allocations", icon: <UserCheck className="h-4 w-4" />, accent: "green" },
-  { label: "Competency Assignment", href: "/hod/competency-assignment", icon: <BookOpen className="h-4 w-4" />, accent: "orange" },
-  { label: "Department Progress", href: "/hod/progress", icon: <BarChart3 className="h-4 w-4" />, accent: "purple" },
-  { label: "Import Students", href: "/hod/students/import", icon: <FileBarChart className="h-4 w-4" />, accent: "primary" },
+const progressColors: ("blue" | "green" | "purple" | "orange" | "primary")[] = [
+  "blue",
+  "green",
+  "purple",
+  "orange",
+  "primary",
 ];
 
-export default function HODDashboard() {
+const quickActions: QuickActionItem[] = [
+  { label: "Faculty Management", href: "/dean/faculty", icon: <Users className="h-4 w-4" />, accent: "primary" },
+  { label: "Student Management", href: "/dean/students", icon: <GraduationCap className="h-4 w-4" />, accent: "blue" },
+  { label: "Student Allocation", href: "/dean/allocations", icon: <UserCheck className="h-4 w-4" />, accent: "green" },
+  { label: "Competency Assignment", href: "/dean/competency-assignment", icon: <BookOpen className="h-4 w-4" />, accent: "orange" },
+  { label: "Department Progress", href: "/dean/progress", icon: <BarChart3 className="h-4 w-4" />, accent: "purple" },
+  { label: "Import Students", href: "/dean/students/import", icon: <FileBarChart className="h-4 w-4" />, accent: "primary" },
+];
+
+export default function DeanDashboard() {
   const { user } = useAuth();
+  const departmentId = user?.departmentId;
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
+      const [department, faculty, students, subjectProgress] = await Promise.all([
+        departmentId ? getDepartmentById(departmentId) : Promise.resolve(undefined),
+        getFaculty(departmentId),
+        getStudents(departmentId),
+        getDepartmentProgress(departmentId),
+      ]);
+
+      const totalCompleted = subjectProgress.reduce((sum, s) => sum + s.completed, 0);
+      const totalCompetencies = subjectProgress.reduce((sum, s) => sum + s.total, 0);
+      const overall = totalCompetencies > 0 ? Math.round((totalCompleted / totalCompetencies) * 100) : 0;
+
       setData({
+        departmentName: department?.name ?? "Unassigned",
         stats: {
-          totalFaculty: "8",
-          totalStudents: "156",
+          totalFaculty: String(faculty.length),
+          totalStudents: String(students.length),
           pendingAssessments: "23",
-          completedCompetencies: "1,247",
+          completedCompetencies: String(totalCompleted),
           remedialCases: "5",
           urgentReviews: "6",
         },
         progress: {
-          overall: 72,
-          subjects: [
-            { subject: "Anatomy", completed: 45, total: 60, color: "blue" },
-            { subject: "Physiology", completed: 38, total: 55, color: "green" },
-            { subject: "Biochemistry", completed: 42, total: 58, color: "purple" },
-          ],
+          overall,
+          subjects: subjectProgress.map((s, i) => ({
+            ...s,
+            color: progressColors[i % progressColors.length],
+          })),
           distribution: [
             { label: "Completed", value: 125, className: "bg-green-500" },
             { label: "In Progress", value: 45, className: "bg-blue-500" },
@@ -95,7 +122,8 @@ export default function HODDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departmentId]);
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -117,11 +145,11 @@ export default function HODDashboard() {
   return (
     <div className="space-y-6">
       <DashboardHeader
-        title="HOD Dashboard"
+        title={user?.role === "HOD" ? "HOD Dashboard" : "Dean Dashboard"}
         description={`Welcome back, Prof. ${user?.lastName}`}
         identity={
           <>
-            <IdentityItem label="Department" value="Anatomy" />
+            <IdentityItem label="Department" value={data.departmentName} />
             <IdentityItem label="Total Faculty" value={data.stats.totalFaculty} />
             <IdentityItem label="Total Students" value={data.stats.totalStudents} />
             <IdentityItem label="Pending Assessments" value={data.stats.pendingAssessments} />
@@ -147,7 +175,7 @@ export default function HODDashboard() {
             title="Department Progress"
             description="Completion across subjects in your department"
             action={
-              <Link href="/hod/progress" className="text-xs font-medium text-primary hover:underline">
+              <Link href="/dean/progress" className="text-xs font-medium text-primary hover:underline">
                 View details
               </Link>
             }

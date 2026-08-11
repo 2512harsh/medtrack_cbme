@@ -5,14 +5,15 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { getCompetencyAssignments, assignCompetency } from "@/features/hod/services/hod";
+import { getCompetencyAssignments, assignCompetency } from "@/features/dean/services/dean";
 import {
   CompetencyAssignmentDialog,
   type CompetencyAssignmentFormValues,
-} from "@/features/hod/components/CompetencyAssignmentDialog";
+} from "@/features/dean/components/CompetencyAssignmentDialog";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 import type { CompetencyAssignment } from "@/types";
 
 type AssignmentRow = {
@@ -25,6 +26,8 @@ type AssignmentRow = {
 };
 
 export default function FacultyAssignmentPage() {
+  const { user } = useAuth();
+  const departmentId = user?.departmentId;
   const [data, setData] = useState<AssignmentRow[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -47,21 +50,21 @@ export default function FacultyAssignmentPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const assignments = await getCompetencyAssignments();
+      const assignments = await getCompetencyAssignments(departmentId);
       setData(rowsFrom(assignments));
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load faculty assignments"));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [departmentId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const refreshList = async () => {
-    const assignments = await getCompetencyAssignments();
+    const assignments = await getCompetencyAssignments(departmentId);
     setData(rowsFrom(assignments));
   };
 

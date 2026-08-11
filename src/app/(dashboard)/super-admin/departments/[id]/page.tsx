@@ -6,6 +6,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   getDepartmentById,
   getInstitutionById,
+  getDeanAccounts,
   getHodAccounts,
 } from "@/features/super-admin/services/superAdmin";
 import { PageLoadingSkeleton } from "@/components/shared/LoadingSkeleton";
@@ -28,6 +29,8 @@ export default function DepartmentDetailPage() {
   const [institution, setInstitution] = useState<Awaited<
     ReturnType<typeof getInstitutionById>
   >>(undefined);
+  type DeanAccountType = Awaited<ReturnType<typeof getDeanAccounts>>[number];
+  const [dean, setDean] = useState<DeanAccountType | undefined>(undefined);
   type HodAccountType = Awaited<ReturnType<typeof getHodAccounts>>[number];
   const [hod, setHod] = useState<HodAccountType | undefined>(undefined);
 
@@ -42,11 +45,13 @@ export default function DepartmentDetailPage() {
         return;
       }
       setDepartment(dept);
-      const [inst, hods] = await Promise.all([
+      const [inst, deans, hods] = await Promise.all([
         getInstitutionById(dept.institutionId),
+        getDeanAccounts(),
         getHodAccounts(),
       ]);
       setInstitution(inst);
+      setDean(dept.deanId ? deans.find((h) => h.id === dept.deanId) : undefined);
       setHod(dept.hodId ? hods.find((h) => h.id === dept.hodId) : undefined);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load department"));
@@ -123,6 +128,18 @@ export default function DepartmentDetailPage() {
             ) : (
               <p className="text-lg font-medium">Unassigned</p>
             )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Dean</CardTitle>
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg font-medium">
+              {dean ? `${dean.firstName} ${dean.lastName}` : "Unassigned"}
+            </p>
+            {dean && <p className="text-xs text-muted-foreground">{dean.email}</p>}
           </CardContent>
         </Card>
         <Card>

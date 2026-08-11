@@ -5,7 +5,7 @@ export const mockDepartment: Department = {
   institutionId: "inst-1",
   name: "Anatomy",
   description: "Department of Anatomy",
-  hodId: "user-hod-1",
+  deanId: "user-dean-1",
   createdAt: "2024-01-01T00:00:00Z",
   updatedAt: "2024-01-01T00:00:00Z",
 };

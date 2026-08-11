@@ -9,14 +9,15 @@ import {
   getStudentAllocations,
   allocateStudent,
   reassignStudentAllocation,
-} from "@/features/hod/services/hod";
+} from "@/features/dean/services/dean";
 import {
   AllocationDialog,
   type AllocationFormValues,
-} from "@/features/hod/components/AllocationDialog";
+} from "@/features/dean/components/AllocationDialog";
 import type { StudentAllocation } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { AsyncContent } from "@/components/shared/AsyncContent";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { toast } from "sonner";
 
 type AllocationRow = {
@@ -29,6 +30,8 @@ type AllocationRow = {
 };
 
 export default function StudentAllocationPage() {
+  const { user } = useAuth();
+  const departmentId = user?.departmentId;
   const [data, setData] = useState<AllocationRow[] | undefined>(undefined);
   const [allocationList, setAllocationList] = useState<StudentAllocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,7 +58,7 @@ export default function StudentAllocationPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const allocations = await getStudentAllocations();
+      const allocations = await getStudentAllocations(departmentId);
       setAllocationList(allocations);
       setData(rowsFrom(allocations));
     } catch (err) {
@@ -63,14 +66,14 @@ export default function StudentAllocationPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [departmentId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const refreshList = async () => {
-    const allocations = await getStudentAllocations();
+    const allocations = await getStudentAllocations(departmentId);
     setAllocationList(allocations);
     setData(rowsFrom(allocations));
   };

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { getFaculty } from "@/features/hod/services/hod";
+import { getFaculty } from "@/features/dean/services/dean";
 import {
   getSubjects,
   getTopics,
