@@ -88,11 +88,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       "super-admin": "Platform Admin",
       institutions: "Institutions",
       departments: "Departments",
-      "hod-accounts": "HOD Accounts",
       "competency-import": "Competency Import",
       monitoring: "Platform Monitoring",
       "system-settings": "System Settings",
-      "qr-attendance": "QR Attendance",
       evidence: "Evidence Upload",
       integrations: "Integrations",
       lms: "LMS Integration",
@@ -102,7 +100,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
     segments.forEach((segment) => {
       currentPath += `/${segment}`;
-      const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
+      const label =
+        segment === "dean" && userRole === "HOD"
+          ? "HOD"
+          : routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " ");
       breadcrumbs.push({ title: label, href: currentPath });
     });
 
@@ -113,7 +114,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     const validRoutes = [
       "/dashboard",
       "/dashboard/super-admin",
-      "/dashboard/hod",
+      "/dashboard/dean",
       "/dashboard/faculty",
       "/dashboard/student",
       "/curriculum/streams",
@@ -123,14 +124,14 @@ export function Header({ onMenuClick }: HeaderProps) {
       "/curriculum/competencies",
       "/curriculum/templates",
       "/curriculum/import",
-      "/hod/faculty",
-      "/hod/students",
-      "/hod/students/import",
-      "/hod/allocations",
-      "/hod/allocation-history",
-      "/hod/competency-assignment",
-      "/hod/faculty-assignment",
-      "/hod/progress",
+      "/dean/faculty",
+      "/dean/students",
+      "/dean/students/import",
+      "/dean/allocations",
+      "/dean/allocation-history",
+      "/dean/competency-assignment",
+      "/dean/faculty-assignment",
+      "/dean/progress",
       "/faculty/assigned-students",
       "/faculty/assigned-competencies",
       "/faculty/assessment-form",
@@ -144,7 +145,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       "/student/progress",
       "/student/response",
       "/student/evidence",
-      "/faculty/qr-attendance",
       "/integrations/lms",
       "/billing",
       "/super-admin/branding",
@@ -161,7 +161,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       "/reports/audit-report",
       "/super-admin/institutions",
       "/super-admin/departments",
-      "/super-admin/hod-accounts",
       "/super-admin/competency-import",
       "/super-admin/monitoring",
       "/super-admin/system-settings",

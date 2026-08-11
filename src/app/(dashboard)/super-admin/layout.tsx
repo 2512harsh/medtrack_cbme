@@ -4,7 +4,6 @@ import { SectionTabs } from "@/components/layout/SectionTabs";
 import {
   LayoutDashboard,
   Building2,
-  Users,
   Network,
   FileSpreadsheet,
   Activity,

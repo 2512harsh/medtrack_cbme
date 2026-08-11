@@ -12,7 +12,7 @@ import { ChevronRight, GraduationCap, Calendar, Hash, UserCheck } from "lucide-r
 import {
   getStudentById,
   getStudentAllocations,
-} from "@/features/hod/services/hod";
+} from "@/features/dean/services/dean";
 import type { Student, StudentAllocation } from "@/types";
 
 export default function StudentDetailPage() {
@@ -74,7 +74,7 @@ export default function StudentDetailPage() {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-lg font-medium">Student not found</p>
         <p className="text-sm text-muted-foreground mt-2">The requested student could not be found.</p>
-        <Link href="/hod/students" className="mt-4 text-primary hover:underline">
+        <Link href="/dean/students" className="mt-4 text-primary hover:underline">
           Back to Student Management
         </Link>
       </div>
@@ -87,7 +87,7 @@ export default function StudentDetailPage() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/hod/students" className="hover:text-foreground">Student Management</Link>
+          <Link href="/dean/students" className="hover:text-foreground">Student Management</Link>
           <ChevronRight className="h-4 w-4" />
           <span className="text-foreground">{fullName}</span>
         </div>

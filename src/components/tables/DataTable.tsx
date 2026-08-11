@@ -245,11 +245,11 @@ export function DataTable<TData extends RowData>({
         </UITable>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex-1 text-sm text-muted-foreground">
           {table.getFilteredRowModel().rows.length} row(s)
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Rows per page</span>
             <select

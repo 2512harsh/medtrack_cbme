@@ -13,7 +13,7 @@ import {
   getFacultyById,
   getCompetencyAssignments,
   getStudentAllocations,
-} from "@/features/hod/services/hod";
+} from "@/features/dean/services/dean";
 import type { Faculty, CompetencyAssignment, StudentAllocation } from "@/types";
 
 export default function FacultyDetailPage() {
@@ -81,7 +81,7 @@ export default function FacultyDetailPage() {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-lg font-medium">Faculty not found</p>
         <p className="text-sm text-muted-foreground mt-2">The requested faculty member could not be found.</p>
-        <Link href="/hod/faculty" className="mt-4 text-primary hover:underline">
+        <Link href="/dean/faculty" className="mt-4 text-primary hover:underline">
           Back to Faculty Management
         </Link>
       </div>
@@ -94,7 +94,7 @@ export default function FacultyDetailPage() {
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Link href="/hod/faculty" className="hover:text-foreground">Faculty Management</Link>
+          <Link href="/dean/faculty" className="hover:text-foreground">Faculty Management</Link>
           <ChevronRight className="h-4 w-4" />
           <span className="text-foreground">{fullName}</span>
         </div>
@@ -206,7 +206,7 @@ export default function FacultyDetailPage() {
                 {items.map((a) => (
                   <Link
                     key={a.id}
-                    href={`/hod/students/${a.studentId}`}
+                    href={`/dean/students/${a.studentId}`}
                     className="flex items-center justify-between rounded-md border p-3 hover:bg-accent transition-colors"
                   >
                     <div>

@@ -8,9 +8,11 @@ import { Plus, Power } from "lucide-react";
 import {
   getDepartments,
   getInstitutionById,
+  getDeanAccounts,
   getHodAccounts,
   createDepartment,
   setDepartmentStatus,
+  createDeanAccount,
   createHodAccount,
   updateDepartment,
 } from "@/features/super-admin/services/superAdmin";
@@ -44,6 +46,7 @@ type DepartmentRow = {
   description: string;
   institutionId: string;
   institutionName: string;
+  deanName: string;
   hodName: string;
   status: string;
 };
@@ -60,6 +63,11 @@ export default function DepartmentsPage() {
     name: "",
     description: "",
     institutionId: "",
+    createDean: false,
+    deanFirstName: "",
+    deanLastName: "",
+    deanEmail: "",
+    deanPassword: "",
     createHod: false,
     hodFirstName: "",
     hodLastName: "",
@@ -74,8 +82,9 @@ export default function DepartmentsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [departments, hods] = await Promise.all([
+      const [departments, deans, hods] = await Promise.all([
         getDepartments(),
+        getDeanAccounts(),
         getHodAccounts(),
       ]);
       const institutions = await Promise.all(
@@ -83,6 +92,7 @@ export default function DepartmentsPage() {
       );
       const rows: DepartmentRow[] = departments.map((d, index) => {
         const inst = institutions[index];
+        const dean = deans.find((h) => h.id === d.deanId);
         const hod = hods.find((h) => h.id === d.hodId);
         return {
           id: d.id,
@@ -90,6 +100,7 @@ export default function DepartmentsPage() {
           description: d.description ?? "-",
           institutionId: d.institutionId,
           institutionName: inst?.name ?? "Unknown",
+          deanName: dean ? `${dean.firstName} ${dean.lastName}` : "Unassigned",
           hodName: hod ? `${hod.firstName} ${hod.lastName}` : "Unassigned",
           status: d.status ?? "ACTIVE",
         };
@@ -131,6 +142,7 @@ export default function DepartmentsPage() {
       ),
     },
     { accessorKey: "institutionName", header: "Institution" },
+    { accessorKey: "deanName", header: "Dean" },
     { accessorKey: "hodName", header: "HOD" },
     {
       accessorKey: "status",
@@ -171,14 +183,21 @@ export default function DepartmentsPage() {
       toast.error("Name and institution are required");
       return;
     }
-    
+
+    if (form.createDean) {
+      if (!form.deanFirstName || !form.deanLastName || !form.deanEmail || !form.deanPassword) {
+        toast.error("All Dean fields are required if creating a Dean account");
+        return;
+      }
+    }
+
     if (form.createHod) {
       if (!form.hodFirstName || !form.hodLastName || !form.hodEmail || !form.hodPassword) {
         toast.error("All HOD fields are required if creating an HOD account");
         return;
       }
     }
-    
+
     setSubmitting(true);
     try {
       const department = await createDepartment({
@@ -187,6 +206,17 @@ export default function DepartmentsPage() {
         institutionId: form.institutionId,
         status: "ACTIVE",
       });
+
+      if (form.createDean) {
+        const dean = await createDeanAccount({
+          firstName: form.deanFirstName,
+          lastName: form.deanLastName,
+          email: form.deanEmail,
+          password: form.deanPassword,
+          departmentId: department.id,
+        });
+        await updateDepartment(department.id, { deanId: dean.id });
+      }
 
       if (form.createHod) {
         const hod = await createHodAccount({
@@ -201,10 +231,15 @@ export default function DepartmentsPage() {
 
       toast.success("Department created successfully");
       setDialogOpen(false);
-      setForm({ 
-        name: "", 
-        description: "", 
+      setForm({
+        name: "",
+        description: "",
         institutionId: "",
+        createDean: false,
+        deanFirstName: "",
+        deanLastName: "",
+        deanEmail: "",
+        deanPassword: "",
         createHod: false,
         hodFirstName: "",
         hodLastName: "",
@@ -311,7 +346,63 @@ export default function DepartmentsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
+            <div className="space-y-2 pt-2 border-t mt-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="create-dean"
+                  checked={form.createDean}
+                  onCheckedChange={(checked) =>
+                    setForm({ ...form, createDean: checked === true })
+                  }
+                />
+                <Label htmlFor="create-dean">Create Dean Account for this Department</Label>
+              </div>
+            </div>
+
+            {form.createDean && (
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="space-y-2">
+                  <Label htmlFor="dean-firstName">First Name *</Label>
+                  <Input
+                    id="dean-firstName"
+                    value={form.deanFirstName}
+                    onChange={(e) => setForm({ ...form, deanFirstName: e.target.value })}
+                    placeholder="First Name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dean-lastName">Last Name *</Label>
+                  <Input
+                    id="dean-lastName"
+                    value={form.deanLastName}
+                    onChange={(e) => setForm({ ...form, deanLastName: e.target.value })}
+                    placeholder="Last Name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dean-email">Email *</Label>
+                  <Input
+                    id="dean-email"
+                    type="email"
+                    value={form.deanEmail}
+                    onChange={(e) => setForm({ ...form, deanEmail: e.target.value })}
+                    placeholder="dean@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dean-password">Password *</Label>
+                  <Input
+                    id="dean-password"
+                    type="password"
+                    value={form.deanPassword}
+                    onChange={(e) => setForm({ ...form, deanPassword: e.target.value })}
+                    placeholder="Enter password"
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2 pt-2 border-t mt-2">
               <div className="flex items-center space-x-2">
                 <Checkbox

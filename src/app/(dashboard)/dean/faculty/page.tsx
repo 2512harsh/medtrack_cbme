@@ -11,11 +11,12 @@ import {
   createFaculty,
   updateFaculty,
   getDepartments,
-} from "@/features/hod/services/hod";
+} from "@/features/dean/services/dean";
 import {
   FacultyFormDialog,
   type FacultyFormValues,
-} from "@/features/hod/components/FacultyFormDialog";
+} from "@/features/dean/components/FacultyFormDialog";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
@@ -33,6 +34,8 @@ type FacultyRow = {
 };
 
 export default function FacultyManagementPage() {
+  const { user } = useAuth();
+  const departmentId = user?.departmentId;
   const [data, setData] = useState<FacultyRow[] | undefined>(undefined);
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -49,7 +52,7 @@ export default function FacultyManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [faculty, depts] = await Promise.all([getFaculty(), getDepartments()]);
+      const [faculty, depts] = await Promise.all([getFaculty(departmentId), getDepartments()]);
       setFacultyList(faculty);
       setDepartments(depts);
       setData(
@@ -71,10 +74,11 @@ export default function FacultyManagementPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [departmentId]);
 
   const refreshList = async () => {
-    const faculty = await getFaculty();
+    const faculty = await getFaculty(departmentId);
     setFacultyList(faculty);
     setData(
       faculty.map((f) => ({
@@ -190,7 +194,7 @@ export default function FacultyManagementPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
           <Link
-            href={`/hod/faculty/${row.original.id}`}
+            href={`/dean/faculty/${row.original.id}`}
             className="font-medium text-primary hover:underline"
           >
             {row.getValue("name")}
@@ -226,7 +230,7 @@ export default function FacultyManagementPage() {
             <Button variant="ghost" size="icon" title="Edit" onClick={() => openEdit(faculty.id)}>
               <Edit className="h-4 w-4" />
             </Button>
-            <Link href={`/hod/faculty/${faculty.id}`}>
+            <Link href={`/dean/faculty/${faculty.id}`}>
               <Button
                 variant="ghost"
                 size="icon"

@@ -10,11 +10,12 @@ import {
   createStudent,
   updateStudent,
   deleteStudent,
-} from "@/features/hod/services/hod";
+} from "@/features/dean/services/dean";
 import {
   StudentFormDialog,
   type StudentFormValues,
-} from "@/features/hod/components/StudentFormDialog";
+} from "@/features/dean/components/StudentFormDialog";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 import Link from "next/link";
 import type { Student } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
@@ -32,6 +33,8 @@ type StudentRow = {
 };
 
 export default function StudentManagementPage() {
+  const { user } = useAuth();
+  const departmentId = user?.departmentId;
   const [data, setData] = useState<StudentRow[] | undefined>(undefined);
   const [studentList, setStudentList] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,7 +59,7 @@ export default function StudentManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const students = await getStudents();
+      const students = await getStudents(departmentId);
       setStudentList(students);
       setData(rowsFrom(students));
     } catch (err) {
@@ -64,14 +67,14 @@ export default function StudentManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [departmentId]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const refreshList = async () => {
-    const students = await getStudents();
+    const students = await getStudents(departmentId);
     setStudentList(students);
     setData(rowsFrom(students));
   };
@@ -99,7 +102,7 @@ export default function StudentManagementPage() {
           email: "",
           role: "Student" as const,
           status: "ACTIVE" as const,
-          departmentId: "dept-1",
+          departmentId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -137,7 +140,7 @@ export default function StudentManagementPage() {
             email: values.email,
             role: "Student",
             status: values.status,
-            departmentId: "dept-1",
+            departmentId,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -174,7 +177,7 @@ export default function StudentManagementPage() {
       header: "Name",
       cell: ({ row }) => (
         <Link
-          href={`/hod/students/${row.original.id}`}
+          href={`/dean/students/${row.original.id}`}
           className="font-medium text-primary hover:underline"
         >
           {row.getValue("name")}
@@ -230,7 +233,7 @@ export default function StudentManagementPage() {
         description="Import, view, and manage students"
         actions={
           <>
-            <Link href="/hod/students/import">
+            <Link href="/dean/students/import">
               <Button variant="outline">
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
                 Import

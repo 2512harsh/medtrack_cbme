@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import { getFaculty, getStudents } from "@/features/hod/services/hod";
+import { getFaculty, getStudents } from "@/features/dean/services/dean";
 import { getSubjects } from "@/features/curriculum/services/curriculum";
 import type { Faculty, Student, StudentAllocation, Subject } from "@/types";
 

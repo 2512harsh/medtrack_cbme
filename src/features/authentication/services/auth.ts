@@ -50,8 +50,10 @@ export function getDashboardRoute(role: UserRole): string {
   switch (role) {
     case "Super Admin":
       return "/dashboard/super-admin";
+    case "Dean":
+      return "/dashboard/dean";
     case "HOD":
-      return "/dashboard/hod";
+      return "/dashboard/dean";
     case "Faculty":
       return "/dashboard/faculty";
     case "Student":
