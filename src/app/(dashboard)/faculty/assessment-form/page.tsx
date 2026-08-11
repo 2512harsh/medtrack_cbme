@@ -299,11 +299,11 @@ export default function AssessmentFormPage() {
               <div className="space-y-2">
                 <Label>Competency *</Label>
                 <Select value={selectedCompetency} onValueChange={(v) => setSelectedCompetency(v ?? "")} disabled={!selectedTopic}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a competency">
                       {selectedCompetency ? (
-                        <span>
-                          <span className="font-medium mr-2">
+                        <span className="flex items-center gap-2 overflow-hidden">
+                          <span className="font-medium shrink-0">
                             {mockCompetencies.find((c) => c.id === selectedCompetency)?.code}
                           </span>
                           <span className="truncate">
@@ -322,6 +322,11 @@ export default function AssessmentFormPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedCompetency && (
+                  <p className="text-sm text-muted-foreground whitespace-normal break-words">
+                    {mockCompetencies.find((c) => c.id === selectedCompetency)?.title}
+                  </p>
+                )}
               </div>
             </div>
 
