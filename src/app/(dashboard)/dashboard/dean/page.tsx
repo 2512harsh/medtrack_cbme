@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, GraduationCap, ClipboardCheck, TrendingUp, AlertTriangle, Activity, UserCheck, BookOpen, BarChart3, FileBarChart, Building2 } from "lucide-react";
+import { Users, GraduationCap, ClipboardCheck, TrendingUp, AlertTriangle, Activity, UserCheck, BookOpen, FileBarChart, Building2 } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import {
@@ -12,7 +12,6 @@ import {
   getDepartmentProgress,
   getDepartmentWiseProgress,
 } from "@/features/dean/services/dean";
-import Link from "next/link";
 import {
   DashboardGrid,
   DashboardCol,
@@ -55,7 +54,6 @@ const quickActions: QuickActionItem[] = [
   { label: "Student Management", href: "/dean/students", icon: <GraduationCap className="h-4 w-4" />, accent: "blue" },
   { label: "Student Allocation", href: "/dean/allocations", icon: <UserCheck className="h-4 w-4" />, accent: "green" },
   { label: "Competency Assignment", href: "/dean/competency-assignment", icon: <BookOpen className="h-4 w-4" />, accent: "orange" },
-  { label: "Department Progress", href: "/dean/progress", icon: <BarChart3 className="h-4 w-4" />, accent: "purple" },
   { label: "Import Students", href: "/dean/students/import", icon: <FileBarChart className="h-4 w-4" />, accent: "primary" },
 ];
 
@@ -176,11 +174,6 @@ export default function DeanDashboard() {
           <SectionCard
             title={isDean ? "Department-wise Progress" : "Department Progress"}
             description={isDean ? "Completion across departments in your institution" : "Completion across subjects in your department"}
-            action={
-              <Link href="/dean/progress" className="text-xs font-medium text-primary hover:underline">
-                View details
-              </Link>
-            }
           >
             <ProgressWidget
               overall={data.progress.overall}

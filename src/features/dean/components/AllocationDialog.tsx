@@ -106,7 +106,15 @@ export function AllocationDialog({
 
           <div className="space-y-2">
             <Label htmlFor="faculty">Faculty *</Label>
-            <Select value={facultyId} onValueChange={(v) => setFacultyId(v ?? "")} disabled={isSaving}>
+            <Select
+              items={faculty.map((f) => ({
+                value: f.id,
+                label: f.user ? `${f.user.firstName} ${f.user.lastName}` : f.employeeCode,
+              }))}
+              value={facultyId}
+              onValueChange={(v) => setFacultyId(v ?? "")}
+              disabled={isSaving}
+            >
               <SelectTrigger id="faculty">
                 <SelectValue placeholder="Select a faculty member" />
               </SelectTrigger>
@@ -122,7 +130,12 @@ export function AllocationDialog({
 
           <div className="space-y-2">
             <Label htmlFor="subject">Subject *</Label>
-            <Select value={subjectId} onValueChange={(v) => setSubjectId(v ?? "")} disabled={isSaving}>
+            <Select
+              items={subjects.map((s) => ({ value: s.id, label: s.name }))}
+              value={subjectId}
+              onValueChange={(v) => setSubjectId(v ?? "")}
+              disabled={isSaving}
+            >
               <SelectTrigger id="subject">
                 <SelectValue placeholder="Select a subject" />
               </SelectTrigger>

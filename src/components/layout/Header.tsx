@@ -131,7 +131,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       "/dean/allocation-history",
       "/dean/competency-assignment",
       "/dean/faculty-assignment",
-      "/dean/progress",
       "/faculty/assigned-students",
       "/faculty/assigned-competencies",
       "/faculty/assessment-form",
