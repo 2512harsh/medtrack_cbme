@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getTopics } from "@/features/curriculum/services/curriculum";
+import { getTopics, getSubjects, getCompetencies } from "@/features/curriculum/services/curriculum";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { BookText } from "lucide-react";
@@ -57,14 +57,18 @@ export default function TopicsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const topics = await getTopics();
+      const [topics, subjects, competencies] = await Promise.all([
+        getTopics(),
+        getSubjects(),
+        getCompetencies(),
+      ]);
       setData(
         topics.map((t: Topic) => ({
           id: t.id,
           title: t.title,
-          subject: "Anatomy",
+          subject: subjects.find((s) => s.id === t.subjectId)?.name ?? "Unassigned",
           displayOrder: t.displayOrder || 1,
-          competencyCount: 4,
+          competencyCount: competencies.filter((c) => c.topicId === t.id).length,
         }))
       );
     } catch (err) {
