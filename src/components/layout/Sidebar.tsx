@@ -135,7 +135,7 @@ const navigation = [
     title: "Notifications",
     href: "/assessment/notifications",
     icon: Bell,
-    roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
+    roles: ["Super Admin", "HOD", "Faculty", "Student"],
   },
   {
     title: "Settings",

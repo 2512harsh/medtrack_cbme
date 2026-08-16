@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getProfessionalYears } from "@/features/curriculum/services/curriculum";
+import { getProfessionalYears, getStreams } from "@/features/curriculum/services/curriculum";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { GraduationCap } from "lucide-react";
@@ -49,12 +49,12 @@ export default function ProfessionalYearsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const years = await getProfessionalYears();
+      const [years, streams] = await Promise.all([getProfessionalYears(), getStreams()]);
       setData(
         years.map((py: ProfessionalYear) => ({
           id: py.id,
           name: py.name,
-          streamName: "MBBS",
+          streamName: streams.find((s) => s.id === py.streamId)?.name ?? "Unassigned",
           sequence: py.sequence,
         }))
       );
