@@ -5,7 +5,7 @@ import {
   mockStudentAllocations,
   mockCompetencyAssignments,
 } from "@/features/dean/mock/dean";
-import { mockDepartments } from "@/features/super-admin/mock/superAdmin";
+import { mockDepartments, mockHodAccounts, type HodAccount } from "@/features/super-admin/mock/superAdmin";
 import { mockSubjects } from "@/features/curriculum/mock/curriculum";
 
 export function getDepartments(): Promise<Department[]> {
@@ -14,6 +14,66 @@ export function getDepartments(): Promise<Department[]> {
 
 export function getDepartmentById(id: string): Promise<Department | undefined> {
   return Promise.resolve(mockDepartments.find((d) => d.id === id));
+}
+
+export function getHodAccounts(institutionId?: string): Promise<HodAccount[]> {
+  if (!institutionId) {
+    return Promise.resolve(mockHodAccounts);
+  }
+  const deptIds = new Set(
+    mockDepartments.filter((d) => d.institutionId === institutionId).map((d) => d.id)
+  );
+  return Promise.resolve(mockHodAccounts.filter((h) => h.departmentId && deptIds.has(h.departmentId)));
+}
+
+export function createHodAccount(
+  data: Pick<HodAccount, "firstName" | "lastName" | "email" | "departmentId" | "status">
+): Promise<HodAccount> {
+  const now = new Date().toISOString();
+  const account: HodAccount = {
+    ...data,
+    id: `user-hod-${Date.now()}`,
+    role: "HOD",
+    createdAt: now,
+    updatedAt: now,
+  };
+  mockHodAccounts.push(account);
+  const dept = mockDepartments.find((d) => d.id === account.departmentId);
+  if (dept) {
+    dept.hodId = account.id;
+  }
+  return Promise.resolve(account);
+}
+
+export function updateHodAccount(id: string, data: Partial<HodAccount>): Promise<HodAccount> {
+  const index = mockHodAccounts.findIndex((h) => h.id === id);
+  if (index === -1) {
+    return Promise.reject(new Error("HOD not found"));
+  }
+  const previousDepartmentId = mockHodAccounts[index].departmentId;
+  mockHodAccounts[index] = { ...mockHodAccounts[index], ...data, updatedAt: new Date().toISOString() };
+  const newDepartmentId = mockHodAccounts[index].departmentId;
+
+  if (previousDepartmentId !== newDepartmentId) {
+    if (previousDepartmentId) {
+      const prevDept = mockDepartments.find((d) => d.id === previousDepartmentId);
+      if (prevDept && prevDept.hodId === id) {
+        prevDept.hodId = undefined;
+      }
+    }
+    if (newDepartmentId) {
+      const newDept = mockDepartments.find((d) => d.id === newDepartmentId);
+      if (newDept) {
+        newDept.hodId = id;
+      }
+    }
+  }
+
+  return Promise.resolve(mockHodAccounts[index]);
+}
+
+export function deactivateHodAccount(id: string): Promise<HodAccount> {
+  return updateHodAccount(id, { status: "INACTIVE" });
 }
 
 export function getFaculty(departmentId?: string): Promise<Faculty[]> {
@@ -196,5 +256,27 @@ export function getDepartmentProgress(departmentId?: string): Promise<{ subject:
       subject: s.name,
       ...(subjectProgressBaseline[s.id] ?? { completed: 0, total: 0 }),
     }))
+  );
+}
+
+export function getDepartmentWiseProgress(institutionId?: string): Promise<{ department: string; completed: number; total: number }[]> {
+  const departments = institutionId
+    ? mockDepartments.filter((d) => d.institutionId === institutionId)
+    : mockDepartments;
+
+  return Promise.resolve(
+    departments.map((d) => {
+      const subjects = mockSubjects.filter((s) => s.departmentId === d.id);
+      const totals = subjects.reduce(
+        (acc, s) => {
+          const baseline = subjectProgressBaseline[s.id] ?? { completed: 0, total: 0 };
+          acc.completed += baseline.completed;
+          acc.total += baseline.total;
+          return acc;
+        },
+        { completed: 0, total: 0 }
+      );
+      return { department: d.name, ...totals };
+    })
   );
 }
