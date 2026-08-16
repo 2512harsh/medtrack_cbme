@@ -1,21 +1,22 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Users, GraduationCap, ClipboardCheck, TrendingUp, AlertTriangle, Activity, UserCheck, BookOpen, BarChart3, ShieldAlert, FileBarChart } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, GraduationCap, ClipboardCheck, TrendingUp, AlertTriangle, Activity, UserCheck, BookOpen, BarChart3, FileBarChart, Building2 } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import {
   getDepartmentById,
+  getDepartments,
   getFaculty,
   getStudents,
   getDepartmentProgress,
+  getDepartmentWiseProgress,
 } from "@/features/dean/services/dean";
 import Link from "next/link";
 import {
   DashboardGrid,
   DashboardCol,
   DashboardHeader,
-  IdentityItem,
   MetricCard,
   SectionCard,
   ProgressWidget,
@@ -27,14 +28,11 @@ import {
 import type { ActivityItem, QuickActionItem } from "@/components/dashboard";
 
 interface DashboardData {
-  departmentName: string;
+  departmentCount: number;
   stats: {
     totalFaculty: string;
     totalStudents: string;
     pendingAssessments: string;
-    completedCompetencies: string;
-    remedialCases: string;
-    urgentReviews: string;
   };
   progress: {
     overall: number;
@@ -68,42 +66,56 @@ export default function DeanDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  const isDean = user?.role !== "HOD";
+
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [department, faculty, students, subjectProgress] = await Promise.all([
+      const [department, allDepartments, faculty, students] = await Promise.all([
         departmentId ? getDepartmentById(departmentId) : Promise.resolve(undefined),
+        getDepartments(),
         getFaculty(departmentId),
         getStudents(departmentId),
-        getDepartmentProgress(departmentId),
       ]);
 
-      const totalCompleted = subjectProgress.reduce((sum, s) => sum + s.completed, 0);
-      const totalCompetencies = subjectProgress.reduce((sum, s) => sum + s.total, 0);
+      const progressRows = isDean
+        ? (await getDepartmentWiseProgress(department?.institutionId)).map((r) => ({ label: r.department, completed: r.completed, total: r.total }))
+        : (await getDepartmentProgress(departmentId)).map((r) => ({ label: r.subject, completed: r.completed, total: r.total }));
+
+      const totalCompleted = progressRows.reduce((sum, s) => sum + s.completed, 0);
+      const totalCompetencies = progressRows.reduce((sum, s) => sum + s.total, 0);
       const overall = totalCompetencies > 0 ? Math.round((totalCompleted / totalCompetencies) * 100) : 0;
 
+      const remaining = Math.max(totalCompetencies - totalCompleted, 0);
+      const inProgress = Math.round(remaining * 0.5);
+      const pending = Math.round(remaining * 0.2);
+      const awaitingReview = Math.max(remaining - inProgress - pending, 0);
+
+      const departmentCount = department
+        ? allDepartments.filter((d) => d.institutionId === department.institutionId).length
+        : allDepartments.length;
+
       setData({
-        departmentName: department?.name ?? "Unassigned",
+        departmentCount,
         stats: {
           totalFaculty: String(faculty.length),
           totalStudents: String(students.length),
           pendingAssessments: "23",
-          completedCompetencies: String(totalCompleted),
-          remedialCases: "5",
-          urgentReviews: "6",
         },
         progress: {
           overall,
-          subjects: subjectProgress.map((s, i) => ({
-            ...s,
+          subjects: progressRows.map((s, i) => ({
+            subject: s.label,
+            completed: s.completed,
+            total: s.total,
             color: progressColors[i % progressColors.length],
           })),
           distribution: [
-            { label: "Completed", value: 125, className: "bg-green-500" },
-            { label: "In Progress", value: 45, className: "bg-blue-500" },
-            { label: "Pending", value: 18, className: "bg-orange-500" },
-            { label: "Awaiting Review", value: 23, className: "bg-purple-500" },
+            { label: "Completed", value: totalCompleted, className: "bg-green-500" },
+            { label: "In Progress", value: inProgress, className: "bg-blue-500" },
+            { label: "Pending", value: pending, className: "bg-orange-500" },
+            { label: "Awaiting Review", value: awaitingReview, className: "bg-purple-500" },
           ],
         },
         activity: [
@@ -147,33 +159,23 @@ export default function DeanDashboard() {
       <DashboardHeader
         title={user?.role === "HOD" ? "HOD Dashboard" : "Dean Dashboard"}
         description={`Welcome back, Prof. ${user?.lastName}`}
-        identity={
-          <>
-            <IdentityItem label="Department" value={data.departmentName} />
-            <IdentityItem label="Total Faculty" value={data.stats.totalFaculty} />
-            <IdentityItem label="Total Students" value={data.stats.totalStudents} />
-            <IdentityItem label="Pending Assessments" value={data.stats.pendingAssessments} />
-            <IdentityItem label="Completion Rate" value={`${data.progress.overall}%`} />
-          </>
-        }
       />
 
-      {/* KPI row — 6 cards on desktop */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      {/* KPI row */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {user?.role !== "HOD" && (
+          <MetricCard label="Departments" value={String(data.departmentCount)} icon={<Building2 className="h-5 w-5" />} color="primary" />
+        )}
         <MetricCard label="Total Faculty" value={data.stats.totalFaculty} icon={<Users className="h-5 w-5" />} color="blue" trend="+1 this month" trendUp />
         <MetricCard label="Total Students" value={data.stats.totalStudents} icon={<GraduationCap className="h-5 w-5" />} color="green" trend="+24 this batch" trendUp />
         <MetricCard label="Pending Assessments" value={data.stats.pendingAssessments} icon={<ClipboardCheck className="h-5 w-5" />} color="orange" sub="6 urgent" />
-        <MetricCard label="Completed Competencies" value={data.stats.completedCompetencies} icon={<TrendingUp className="h-5 w-5" />} color="purple" trend="+89 this month" trendUp />
-        <MetricCard label="Remediation Cases" value={data.stats.remedialCases} icon={<ShieldAlert className="h-5 w-5" />} color="red" sub="2 due soon" />
-        <MetricCard label="Urgent Reviews" value={data.stats.urgentReviews} icon={<AlertTriangle className="h-5 w-5" />} color="yellow" sub="Review now" />
       </div>
 
       <DashboardGrid>
-        {/* Department Progress (8 cols) + Faculty Activity (4 cols) */}
-        <DashboardCol span={8}>
+        <DashboardCol span={12}>
           <SectionCard
-            title="Department Progress"
-            description="Completion across subjects in your department"
+            title={isDean ? "Department-wise Progress" : "Department Progress"}
+            description={isDean ? "Completion across departments in your institution" : "Completion across subjects in your department"}
             action={
               <Link href="/dean/progress" className="text-xs font-medium text-primary hover:underline">
                 View details
@@ -184,20 +186,8 @@ export default function DeanDashboard() {
               overall={data.progress.overall}
               subjects={data.progress.subjects}
               distribution={data.progress.distribution}
+              itemVariant={isDean ? "circle" : "bar"}
             />
-          </SectionCard>
-        </DashboardCol>
-
-        <DashboardCol span={4}>
-          <SectionCard
-            title="Faculty Activity"
-            description="Latest faculty and department events"
-          >
-            {data.activity.length === 0 ? (
-              <EmptyWidget title="No recent activity" description="Department events will appear here." icon={<Activity className="h-5 w-5" />} />
-            ) : (
-              <ActivityTimeline items={data.activity} />
-            )}
           </SectionCard>
         </DashboardCol>
 

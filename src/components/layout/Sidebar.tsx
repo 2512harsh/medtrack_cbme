@@ -72,6 +72,7 @@ const navigation = [
     roles: ["Super Admin", "Dean", "HOD", "Faculty"],
     children: [
       { title: "Faculty Management", href: "/dean/faculty", roles: ["Dean", "HOD"] },
+      { title: "HOD Management", href: "/dean/hod", roles: ["Dean"] },
       { title: "Assigned Students", href: "/faculty/assigned-students", roles: ["Faculty"] },
       { title: "Assigned Competencies", href: "/faculty/assigned-competencies", roles: ["Faculty"] },
       { title: "Assessment Queue", href: "/faculty/assessment-queue", roles: ["Faculty"] },
@@ -115,9 +116,9 @@ const navigation = [
       { title: "Student Report", href: "/reports/student-report", roles: ["Dean", "HOD", "Faculty", "Student"] },
       { title: "Faculty Report", href: "/reports/faculty-report", roles: ["Dean", "HOD", "Faculty"] },
       { title: "Department Report", href: "/reports/department-report", roles: ["Dean", "HOD", "Super Admin"] },
-      { title: "Competency Completion", href: "/reports/competency-completion", roles: ["Dean", "HOD", "Faculty"] },
-      { title: "Remediation Report", href: "/reports/remediation-report", roles: ["Dean", "HOD", "Faculty"] },
-      { title: "Audit Report", href: "/reports/audit-report", roles: ["Super Admin", "Dean", "HOD"] },
+      { title: "Competency Completion", href: "/reports/competency-completion", roles: ["Faculty"] },
+      { title: "Remediation Report", href: "/reports/remediation-report", roles: ["Faculty"] },
+      { title: "Audit Report", href: "/reports/audit-report", roles: ["Super Admin"] },
     ],
   },
   {

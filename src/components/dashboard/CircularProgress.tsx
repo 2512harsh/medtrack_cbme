@@ -8,6 +8,7 @@ interface CircularProgressProps {
   label?: string;
   sublabel?: string;
   className?: string;
+  progressClassName?: string;
 }
 
 /**
@@ -20,6 +21,7 @@ export function CircularProgress({
   label,
   sublabel,
   className,
+  progressClassName,
 }: CircularProgressProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -49,7 +51,7 @@ export function CircularProgress({
           fill="none"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
-          className="stroke-primary transition-[stroke-dashoffset] duration-500"
+          className={cn("stroke-primary transition-[stroke-dashoffset] duration-500", progressClassName)}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
         />

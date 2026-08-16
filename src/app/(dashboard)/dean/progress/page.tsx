@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDepartmentProgress } from "@/features/dean/services/dean";
+import { getDepartmentById, getDepartmentProgress, getDepartmentWiseProgress } from "@/features/dean/services/dean";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 
 interface ProgressItem {
-  subject: string;
+  label: string;
   completed: number;
   total: number;
 }
@@ -37,6 +37,7 @@ function ProgressBar({ completed, total, color }: { completed: number; total: nu
 export default function DepartmentProgressPage() {
   const { user } = useAuth();
   const departmentId = user?.departmentId;
+  const isDean = user?.role !== "HOD";
   const [progress, setProgress] = useState<ProgressItem[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -45,8 +46,14 @@ export default function DepartmentProgressPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getDepartmentProgress(departmentId);
-      setProgress(data);
+      if (isDean) {
+        const department = departmentId ? await getDepartmentById(departmentId) : undefined;
+        const data = await getDepartmentWiseProgress(department?.institutionId);
+        setProgress(data.map((d) => ({ label: d.department, completed: d.completed, total: d.total })));
+      } else {
+        const data = await getDepartmentProgress(departmentId);
+        setProgress(data.map((s) => ({ label: s.subject, completed: s.completed, total: s.total })));
+      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load department progress"));
     } finally {
@@ -61,7 +68,10 @@ export default function DepartmentProgressPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Department Progress" description="Track competency completion across subjects" />
+      <PageHeader
+        title="Department Progress"
+        description={isDean ? "Track competency completion across departments" : "Track competency completion across subjects"}
+      />
 
       <AsyncContent
         data={progress}
@@ -76,7 +86,7 @@ export default function DepartmentProgressPage() {
             {items.map((item, i) => (
               <Card key={i}>
                 <CardHeader>
-                  <CardTitle>{item.subject}</CardTitle>
+                  <CardTitle>{item.label}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ProgressBar

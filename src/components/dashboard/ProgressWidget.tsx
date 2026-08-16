@@ -23,56 +23,92 @@ const subjectBarColors: Record<string, string> = {
   primary: "bg-primary",
 };
 
+const subjectRingColors: Record<string, string> = {
+  blue: "stroke-blue-500",
+  green: "stroke-green-500",
+  purple: "stroke-purple-500",
+  orange: "stroke-orange-500",
+  primary: "stroke-primary",
+};
+
 interface ProgressWidgetProps {
   overall: number;
   subjects: SubjectProgress[];
   distribution?: DistributionSlice[];
   className?: string;
+  itemVariant?: "bar" | "circle";
 }
 
 /**
  * Learning progress widget: overall completion ring, per-subject progress
- * bars and competency distribution.
+ * bars (or per-subject rings via `itemVariant="circle"`) and competency
+ * distribution.
  */
-export function ProgressWidget({ overall, subjects, distribution, className }: ProgressWidgetProps) {
+export function ProgressWidget({ overall, subjects, distribution, className, itemVariant = "bar" }: ProgressWidgetProps) {
   return (
     <div className={cn("flex h-full flex-col gap-4", className)}>
-      <div className="flex items-center gap-4 rounded-lg bg-muted/30 px-4 py-3">
-        <CircularProgress value={overall} size={88} strokeWidth={7} sublabel="Overall" />
-        <div className="min-w-0 flex-1 space-y-2">
-          {distribution?.map((slice) => (
-            <div key={slice.label} className="flex items-center justify-between text-[13px]">
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <span className={cn("h-2 w-2 rounded-full", slice.className)} aria-hidden="true" />
-                {slice.label}
-              </span>
-              <span className="font-medium">{slice.value}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {subjects.map((subject) => {
-          const pct = subject.total > 0 ? (subject.completed / subject.total) * 100 : 0;
-          return (
-            <div key={subject.subject}>
-              <div className="mb-1 flex items-center justify-between text-[13px]">
-                <span className="font-medium">{subject.subject}</span>
-                <span className="text-muted-foreground">
-                  {subject.completed}/{subject.total} · {Math.round(pct)}%
+      {itemVariant !== "circle" && (
+        <div className="flex items-center gap-4 rounded-lg bg-muted/30 px-4 py-3">
+          <CircularProgress value={overall} size={88} strokeWidth={7} sublabel="Overall" />
+          <div className="min-w-0 flex-1 space-y-2">
+            {distribution?.map((slice) => (
+              <div key={slice.label} className="flex items-center justify-between text-[13px]">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <span className={cn("h-2 w-2 rounded-full", slice.className)} aria-hidden="true" />
+                  {slice.label}
                 </span>
+                <span className="font-medium">{slice.value}</span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn("h-full rounded-full transition-all", subjectBarColors[subject.color ?? "primary"])}
-                  style={{ width: `${pct}%` }}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {itemVariant === "circle" ? (
+        <div className="flex flex-wrap gap-6">
+          {subjects.map((subject) => {
+            const pct = subject.total > 0 ? (subject.completed / subject.total) * 100 : 0;
+            return (
+              <div key={subject.subject} className="flex flex-col items-center gap-2">
+                <CircularProgress
+                  value={pct}
+                  size={80}
+                  strokeWidth={6}
+                  progressClassName={subjectRingColors[subject.color ?? "primary"]}
                 />
+                <div className="text-center">
+                  <div className="text-[13px] font-medium">{subject.subject}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {subject.completed}/{subject.total}
+                  </div>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {subjects.map((subject) => {
+            const pct = subject.total > 0 ? (subject.completed / subject.total) * 100 : 0;
+            return (
+              <div key={subject.subject}>
+                <div className="mb-1 flex items-center justify-between text-[13px]">
+                  <span className="font-medium">{subject.subject}</span>
+                  <span className="text-muted-foreground">
+                    {subject.completed}/{subject.total} · {Math.round(pct)}%
+                  </span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn("h-full rounded-full transition-all", subjectBarColors[subject.color ?? "primary"])}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
