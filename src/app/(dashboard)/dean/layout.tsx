@@ -8,7 +8,6 @@ import {
   FileSpreadsheet,
   Link2,
   Award,
-  BarChart3,
 } from "lucide-react";
 
 const navigation = [
@@ -19,7 +18,6 @@ const navigation = [
   { href: "/dean/allocations", label: "Student Allocation", icon: Link2 },
   { href: "/dean/faculty-assignment", label: "Faculty Assignment", icon: Award },
   { href: "/dean/competency-assignment", label: "Competency Assignment", icon: Award },
-  { href: "/dean/progress", label: "Department Progress", icon: BarChart3 },
 ];
 
 export default function DeanLayout({

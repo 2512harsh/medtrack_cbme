@@ -90,14 +90,25 @@ export function getStudents(departmentId?: string): Promise<Student[]> {
   return Promise.resolve(mockStudents.filter((s) => s.user?.departmentId === departmentId));
 }
 
+function hydrateAllocation(a: StudentAllocation): StudentAllocation {
+  return {
+    ...a,
+    faculty: a.faculty ?? mockFaculty.find((f) => f.id === a.facultyId),
+    student: a.student ?? mockStudents.find((s) => s.id === a.studentId),
+    subject: a.subject ?? mockSubjects.find((s) => s.id === a.subjectId),
+  };
+}
+
 export function getStudentAllocations(departmentId?: string): Promise<StudentAllocation[]> {
   if (!departmentId) {
-    return Promise.resolve(mockStudentAllocations);
+    return Promise.resolve(mockStudentAllocations.map(hydrateAllocation));
   }
   const deptFacultyIds = new Set(
     mockFaculty.filter((f) => f.departmentId === departmentId).map((f) => f.id)
   );
-  return Promise.resolve(mockStudentAllocations.filter((a) => deptFacultyIds.has(a.facultyId)));
+  return Promise.resolve(
+    mockStudentAllocations.filter((a) => deptFacultyIds.has(a.facultyId)).map(hydrateAllocation)
+  );
 }
 
 export function getCompetencyAssignments(departmentId?: string): Promise<CompetencyAssignment[]> {
@@ -119,7 +130,8 @@ export function getStudentById(id: string): Promise<Student | undefined> {
 }
 
 export function getStudentAllocationById(id: string): Promise<StudentAllocation | undefined> {
-  return Promise.resolve(mockStudentAllocations.find((a) => a.id === id));
+  const found = mockStudentAllocations.find((a) => a.id === id);
+  return Promise.resolve(found ? hydrateAllocation(found) : undefined);
 }
 
 export function getAllocationHistory(departmentId?: string): Promise<StudentAllocation[]> {
@@ -133,7 +145,7 @@ export function getAllocationHistory(departmentId?: string): Promise<StudentAllo
       active: false,
       allocatedDate: "2024-05-15T00:00:00Z",
     })),
-  ];
+  ].map(hydrateAllocation);
   if (!departmentId) {
     return Promise.resolve(history);
   }
@@ -207,12 +219,12 @@ export function deleteStudent(id: string): Promise<void> {
 }
 
 export function allocateStudent(data: Omit<StudentAllocation, "id" | "allocatedBy" | "allocatedDate">): Promise<StudentAllocation> {
-  const newAllocation: StudentAllocation = {
+  const newAllocation: StudentAllocation = hydrateAllocation({
     ...data,
     id: `alloc-${Date.now()}`,
     allocatedBy: "user-hod-1",
     allocatedDate: new Date().toISOString(),
-  };
+  });
   mockStudentAllocations.push(newAllocation);
   return Promise.resolve(newAllocation);
 }
@@ -222,10 +234,11 @@ export function reassignStudentAllocation(id: string, newFacultyId: string): Pro
   if (index === -1) {
     return Promise.reject(new Error("Allocation not found"));
   }
-  mockStudentAllocations[index] = {
+  mockStudentAllocations[index] = hydrateAllocation({
     ...mockStudentAllocations[index],
     facultyId: newFacultyId,
-  };
+    faculty: mockFaculty.find((f) => f.id === newFacultyId),
+  });
   return Promise.resolve(mockStudentAllocations[index]);
 }
 

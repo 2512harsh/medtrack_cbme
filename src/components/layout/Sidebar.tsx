@@ -102,7 +102,7 @@ const navigation = [
     children: [
       { title: "Assessment History", href: "/student/assessment-history", roles: ["Student"] },
       { title: "Assessment History", href: "/faculty/assessment-history", roles: ["Faculty"] },
-      { title: "Remediation", href: "/assessment/remediation-workflow", roles: ["Faculty", "Dean", "HOD"] },
+      { title: "Remediation", href: "/assessment/remediation-workflow", roles: ["Faculty", "HOD"] },
       { title: "Feedback", href: "/student/feedback", roles: ["Student"] },
       { title: "Acknowledgement", href: "/student/acknowledgement", roles: ["Student"] },
     ],
@@ -129,7 +129,6 @@ const navigation = [
     children: [
       { title: "Faculty Assignment", href: "/dean/faculty-assignment", roles: ["Dean", "HOD"] },
       { title: "Competency Assignment", href: "/dean/competency-assignment", roles: ["Dean", "HOD"] },
-      { title: "Department Progress", href: "/dean/progress", roles: ["Dean", "HOD"] },
     ],
   },
   {

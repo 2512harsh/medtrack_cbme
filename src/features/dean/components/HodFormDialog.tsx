@@ -127,7 +127,12 @@ export function HodFormDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="department">Department *</Label>
-              <Select value={values.departmentId} onValueChange={(v) => set("departmentId", v ?? "")} disabled={isSaving}>
+              <Select
+                items={departments.map((d) => ({ value: d.id, label: d.name }))}
+                value={values.departmentId}
+                onValueChange={(v) => set("departmentId", v ?? "")}
+                disabled={isSaving}
+              >
                 <SelectTrigger id="department">
                   <SelectValue placeholder="Select a department" />
                 </SelectTrigger>
@@ -142,7 +147,12 @@ export function HodFormDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
-              <Select value={values.status} onValueChange={(v) => set("status", v ?? "ACTIVE")} disabled={isSaving}>
+              <Select
+                items={{ ACTIVE: "Active", INACTIVE: "Inactive" }}
+                value={values.status}
+                onValueChange={(v) => set("status", v ?? "ACTIVE")}
+                disabled={isSaving}
+              >
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
