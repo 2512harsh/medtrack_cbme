@@ -8,7 +8,6 @@ const navigation = [
   { href: "/curriculum/professional-years", label: "Professional Years", icon: GraduationCap },
   { href: "/curriculum/subjects", label: "Subjects", icon: BookText },
   { href: "/curriculum/competencies", label: "Competencies", icon: FileText },
-  { href: "/curriculum/templates", label: "Question Templates", icon: FileText },
   { href: "/curriculum/import", label: "Excel Import", icon: Upload },
 ];
 

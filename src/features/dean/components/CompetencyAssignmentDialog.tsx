@@ -18,10 +18,11 @@ import { getFaculty } from "@/features/dean/services/dean";
 import {
   getSubjects,
   getTopics,
+  getSubtopics,
   getCompetencies,
   getQuestionTemplates,
 } from "@/features/curriculum/services/curriculum";
-import type { Competency, Faculty, QuestionTemplate, Subject, Topic } from "@/types";
+import type { Competency, Faculty, QuestionTemplate, Subject, Topic, Subtopic } from "@/types";
 
 export interface CompetencyAssignmentFormValues {
   facultyId: string;
@@ -46,12 +47,14 @@ export function CompetencyAssignmentDialog({
   const [faculty, setFaculty] = useState<Faculty[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
   const [competencies, setCompetencies] = useState<Competency[]>([]);
   const [templates, setTemplates] = useState<QuestionTemplate[]>([]);
 
   const [facultyId, setFacultyId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [topicId, setTopicId] = useState("");
+  const [subtopicId, setSubtopicId] = useState("");
   const [competencyId, setCompetencyId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [batch, setBatch] = useState("MBBS-2024");
@@ -70,9 +73,11 @@ export function CompetencyAssignmentDialog({
       setFacultyId(faculty[0]?.id ?? "");
       setSubjectId("");
       setTopicId("");
+      setSubtopicId("");
       setCompetencyId("");
       setTemplateId("");
       setTopics([]);
+      setSubtopics([]);
       setCompetencies([]);
       setTemplates([]);
       setError(null);
@@ -83,6 +88,8 @@ export function CompetencyAssignmentDialog({
     if (!subjectId) {
       setTopics([]);
       setTopicId("");
+      setSubtopics([]);
+      setSubtopicId("");
       setCompetencies([]);
       setCompetencyId("");
       setTemplates([]);
@@ -90,6 +97,7 @@ export function CompetencyAssignmentDialog({
       return;
     }
     setTopicId("");
+    setSubtopicId("");
     setCompetencyId("");
     setTemplateId("");
     setTopics([]);
@@ -98,6 +106,23 @@ export function CompetencyAssignmentDialog({
 
   useEffect(() => {
     if (!topicId) {
+      setSubtopics([]);
+      setSubtopicId("");
+      setCompetencies([]);
+      setCompetencyId("");
+      setTemplates([]);
+      setTemplateId("");
+      return;
+    }
+    setSubtopicId("");
+    setCompetencyId("");
+    setTemplateId("");
+    setSubtopics([]);
+    getSubtopics(topicId).then(setSubtopics);
+  }, [topicId]);
+
+  useEffect(() => {
+    if (!subtopicId) {
       setCompetencies([]);
       setCompetencyId("");
       setTemplates([]);
@@ -107,8 +132,8 @@ export function CompetencyAssignmentDialog({
     setCompetencyId("");
     setTemplateId("");
     setCompetencies([]);
-    getCompetencies(topicId).then(setCompetencies);
-  }, [topicId]);
+    getCompetencies(subtopicId).then(setCompetencies);
+  }, [subtopicId]);
 
   useEffect(() => {
     if (!competencyId) {
@@ -189,10 +214,26 @@ export function CompetencyAssignmentDialog({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="subtopic">Subtopic *</Label>
+            <Select value={subtopicId} onValueChange={(v) => setSubtopicId(v ?? "")} disabled={isSaving || !topicId}>
+              <SelectTrigger id="subtopic">
+                <SelectValue placeholder={topicId ? "Select a subtopic" : "Select a topic first"} />
+              </SelectTrigger>
+              <SelectContent>
+                {subtopics.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="competency">Competency *</Label>
-            <Select value={competencyId} onValueChange={(v) => setCompetencyId(v ?? "")} disabled={isSaving || !topicId}>
+            <Select value={competencyId} onValueChange={(v) => setCompetencyId(v ?? "")} disabled={isSaving || !subtopicId}>
               <SelectTrigger id="competency">
-                <SelectValue placeholder={topicId ? "Select a competency" : "Select a topic first"} />
+                <SelectValue placeholder={subtopicId ? "Select a competency" : "Select a subtopic first"} />
               </SelectTrigger>
               <SelectContent>
                 {competencies.map((c) => (

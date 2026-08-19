@@ -6,9 +6,12 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import {
   getSubjects,
   getTopics,
+  getSubtopics,
   getCompetencies,
   createTopic,
   updateTopic,
+  createSubtopic,
+  updateSubtopic,
   createCompetency,
   updateCompetency,
 } from "@/features/curriculum/services/curriculum";
@@ -26,14 +29,19 @@ import {
   type TopicFormValues,
 } from "@/features/curriculum/components/TopicFormDialog";
 import {
+  SubtopicFormDialog,
+  type SubtopicFormValues,
+} from "@/features/curriculum/components/SubtopicFormDialog";
+import {
   CompetencyFormDialog,
   type CompetencyFormValues,
 } from "@/features/curriculum/components/CompetencyFormDialog";
-import type { Subject, Topic, Competency } from "@/types";
+import type { Subject, Topic, Subtopic, Competency } from "@/types";
 
 export default function CompetenciesPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
   const [competencies, setCompetencies] = useState<Competency[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -44,22 +52,33 @@ export default function CompetenciesPage() {
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
   const [isSavingTopic, setIsSavingTopic] = useState(false);
 
+  const [subtopicFormOpen, setSubtopicFormOpen] = useState(false);
+  const [editingSubtopic, setEditingSubtopic] = useState<Subtopic | null>(null);
+  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
+  const [isSavingSubtopic, setIsSavingSubtopic] = useState(false);
+
   const [competencyFormOpen, setCompetencyFormOpen] = useState(false);
   const [editingCompetency, setEditingCompetency] = useState<Competency | null>(null);
-  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
+  const [competencyContext, setCompetencyContext] = useState<{
+    subjectId?: string;
+    topicId?: string;
+    subtopicId?: string;
+  }>({});
   const [isSavingCompetency, setIsSavingCompetency] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [subs, allTopics, allCompetencies] = await Promise.all([
+      const [subs, allTopics, allSubtopics, allCompetencies] = await Promise.all([
         getSubjects(),
         getTopics(),
+        getSubtopics(),
         getCompetencies(),
       ]);
       setSubjects(subs);
       setTopics(allTopics);
+      setSubtopics(allSubtopics);
       setCompetencies(allCompetencies);
       setSubjectId((prev) => prev || subs[0]?.id || "");
     } catch (err) {
@@ -78,12 +97,25 @@ export default function CompetenciesPage() {
     [topics, subjectId]
   );
 
-  const competenciesByTopic = useMemo(() => {
+  const subtopicsByTopic = useMemo(() => {
+    const map = new Map<string, Subtopic[]>();
+    for (const s of subtopics) {
+      const list = map.get(s.topicId) ?? [];
+      list.push(s);
+      map.set(s.topicId, list);
+    }
+    for (const list of map.values()) {
+      list.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    }
+    return map;
+  }, [subtopics]);
+
+  const competenciesBySubtopic = useMemo(() => {
     const map = new Map<string, Competency[]>();
     for (const c of competencies) {
-      const list = map.get(c.topicId) ?? [];
+      const list = map.get(c.subtopicId) ?? [];
       list.push(c);
-      map.set(c.topicId, list);
+      map.set(c.subtopicId, list);
     }
     return map;
   }, [competencies]);
@@ -130,20 +162,52 @@ export default function CompetenciesPage() {
     }
   };
 
-  const openCreateCompetency = (topicId: string) => {
+  const openCreateSubtopic = (topicId: string) => {
     setActiveTopicId(topicId);
+    setEditingSubtopic(null);
+    setSubtopicFormOpen(true);
+  };
+
+  const openEditSubtopic = (subtopic: Subtopic) => {
+    setActiveTopicId(subtopic.topicId);
+    setEditingSubtopic(subtopic);
+    setSubtopicFormOpen(true);
+  };
+
+  const handleSaveSubtopic = async (values: SubtopicFormValues) => {
+    if (!activeTopicId) return;
+    setIsSavingSubtopic(true);
+    try {
+      if (editingSubtopic) {
+        await updateSubtopic(editingSubtopic.id, values);
+        toast.success("Subtopic updated successfully");
+      } else {
+        await createSubtopic({ topicId: activeTopicId, ...values });
+        toast.success("Subtopic added successfully");
+      }
+      setSubtopicFormOpen(false);
+      const allSubtopics = await getSubtopics();
+      setSubtopics(allSubtopics);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save subtopic");
+    } finally {
+      setIsSavingSubtopic(false);
+    }
+  };
+
+  const openCreateCompetency = (context: { subjectId?: string; topicId?: string; subtopicId?: string } = {}) => {
+    setCompetencyContext({ subjectId, ...context });
     setEditingCompetency(null);
     setCompetencyFormOpen(true);
   };
 
   const openEditCompetency = (competency: Competency) => {
-    setActiveTopicId(competency.topicId);
+    setCompetencyContext({});
     setEditingCompetency(competency);
     setCompetencyFormOpen(true);
   };
 
   const handleSaveCompetency = async (values: CompetencyFormValues) => {
-    if (!activeTopicId) return;
     setIsSavingCompetency(true);
     try {
       if (editingCompetency) {
@@ -151,7 +215,6 @@ export default function CompetenciesPage() {
         toast.success("Competency updated successfully");
       } else {
         await createCompetency({
-          topicId: activeTopicId,
           status: "Active",
           ...values,
         });
@@ -171,7 +234,14 @@ export default function CompetenciesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Competencies"
-        description="Build the competency framework subject by topic by competency"
+        description="Build the competency framework subject by topic by subtopic by competency"
+        dataSource="live"
+        actions={
+          <Button onClick={() => openCreateCompetency()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Competency
+          </Button>
+        }
       />
 
       <AsyncContent
@@ -215,7 +285,11 @@ export default function CompetenciesPage() {
             ) : (
               <div className="space-y-3">
                 {subjectTopics.map((topic) => {
-                  const topicCompetencies = competenciesByTopic.get(topic.id) ?? [];
+                  const topicSubtopics = subtopicsByTopic.get(topic.id) ?? [];
+                  const topicCompetencyCount = topicSubtopics.reduce(
+                    (sum, s) => sum + (competenciesBySubtopic.get(s.id)?.length ?? 0),
+                    0
+                  );
                   const isOpen = openTopicIds.has(topic.id);
                   return (
                     <div key={topic.id} className="rounded-lg border bg-card">
@@ -230,66 +304,107 @@ export default function CompetenciesPage() {
                           />
                           <span className="font-medium">{topic.title}</span>
                           <span className="text-xs text-muted-foreground">
-                            ({topicCompetencies.length} {topicCompetencies.length === 1 ? "competency" : "competencies"})
+                            ({topicCompetencyCount} {topicCompetencyCount === 1 ? "competency" : "competencies"})
                           </span>
                         </button>
                         <div className="flex items-center gap-1">
                           <Button variant="ghost" size="icon" title="Edit Topic" onClick={() => openEditTopic(topic)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button variant="outline" size="sm" onClick={() => openCreateCompetency(topic.id)}>
+                          <Button variant="outline" size="sm" onClick={() => openCreateSubtopic(topic.id)}>
                             <Plus className="h-4 w-4 mr-1" />
-                            Add Competency
+                            Add Subtopic
                           </Button>
                         </div>
                       </div>
 
                       {isOpen && (
-                        <div className="border-t px-4 pb-4">
-                          {topicCompetencies.length === 0 ? (
-                            <p className="py-4 text-sm text-muted-foreground">
-                              No competencies added to this topic yet.
+                        <div className="space-y-4 border-t px-4 pb-4 pt-4">
+                          {topicSubtopics.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">
+                              No subtopics added to this topic yet.
                             </p>
                           ) : (
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Number</TableHead>
-                                  <TableHead>Competency</TableHead>
-                                  <TableHead>Level</TableHead>
-                                  <TableHead>Core</TableHead>
-                                  <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {topicCompetencies.map((c) => (
-                                  <TableRow key={c.id}>
-                                    <TableCell className="font-mono text-sm text-muted-foreground">
-                                      {c.competencyCode}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Link
-                                        href={`/curriculum/competencies/${c.id}`}
-                                        className="font-medium text-primary hover:underline"
+                            topicSubtopics.map((subtopic) => {
+                              const subtopicCompetencies = competenciesBySubtopic.get(subtopic.id) ?? [];
+                              return (
+                                <div key={subtopic.id} className="rounded-md border">
+                                  <div className="flex items-center justify-between gap-2 bg-muted/40 px-3 py-2">
+                                    <span className="text-sm font-medium">{subtopic.title}</span>
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Edit Subtopic"
+                                        onClick={() => openEditSubtopic(subtopic)}
                                       >
-                                        {c.competencyTitle}
-                                      </Link>
-                                    </TableCell>
-                                    <TableCell>{c.competencyLevel}</TableCell>
-                                    <TableCell>
-                                      <StatusBadge variant={c.core ? "success" : "default"}>
-                                        {c.core ? "Yes" : "No"}
-                                      </StatusBadge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                      <Button variant="ghost" size="icon" title="Edit" onClick={() => openEditCompetency(c)}>
                                         <Edit className="h-4 w-4" />
                                       </Button>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          openCreateCompetency({
+                                            subjectId: topic.subjectId,
+                                            topicId: topic.id,
+                                            subtopicId: subtopic.id,
+                                          })
+                                        }
+                                      >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        Add Competency
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  {subtopicCompetencies.length === 0 ? (
+                                    <p className="px-3 py-3 text-sm text-muted-foreground">
+                                      No competencies added to this subtopic yet.
+                                    </p>
+                                  ) : (
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Number</TableHead>
+                                          <TableHead>Competency</TableHead>
+                                          <TableHead>Level</TableHead>
+                                          <TableHead>Core</TableHead>
+                                          <TableHead className="text-right">Actions</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {subtopicCompetencies.map((c) => (
+                                          <TableRow key={c.id}>
+                                            <TableCell className="font-mono text-sm text-muted-foreground">
+                                              {c.competencyCode}
+                                            </TableCell>
+                                            <TableCell>
+                                              <Link
+                                                href={`/curriculum/competencies/${c.id}`}
+                                                className="font-medium text-primary hover:underline"
+                                              >
+                                                {c.competencyTitle}
+                                              </Link>
+                                            </TableCell>
+                                            <TableCell>{c.competencyLevel}</TableCell>
+                                            <TableCell>
+                                              <StatusBadge variant={c.core ? "success" : "default"}>
+                                                {c.core ? "Yes" : "No"}
+                                              </StatusBadge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                              <Button variant="ghost" size="icon" title="Edit" onClick={() => openEditCompetency(c)}>
+                                                <Edit className="h-4 w-4" />
+                                              </Button>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  )}
+                                </div>
+                              );
+                            })
                           )}
                         </div>
                       )}
@@ -311,10 +426,25 @@ export default function CompetenciesPage() {
         onSave={handleSaveTopic}
       />
 
+      <SubtopicFormDialog
+        open={subtopicFormOpen}
+        onOpenChange={setSubtopicFormOpen}
+        subtopic={editingSubtopic}
+        nextDisplayOrder={(activeTopicId ? subtopicsByTopic.get(activeTopicId)?.length ?? 0 : 0) + 1}
+        isSaving={isSavingSubtopic}
+        onSave={handleSaveSubtopic}
+      />
+
       <CompetencyFormDialog
         open={competencyFormOpen}
         onOpenChange={setCompetencyFormOpen}
         competency={editingCompetency}
+        subjects={subjects}
+        topics={topics}
+        subtopics={subtopics}
+        initialSubjectId={competencyContext.subjectId}
+        initialTopicId={competencyContext.topicId}
+        initialSubtopicId={competencyContext.subtopicId}
         isSaving={isSavingCompetency}
         onSave={handleSaveCompetency}
       />

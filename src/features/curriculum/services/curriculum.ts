@@ -1,111 +1,131 @@
-import { mockStreams, mockProfessionalYears, mockSubjects, mockTopics, mockCompetencies, mockQuestionTemplates } from "../mock/curriculum";
-import type { Subject, Topic, Competency } from "@/types";
+import { mockQuestionTemplates } from "../mock/curriculum";
+import type { Subject, Topic, Subtopic, Competency, Department, ProfessionalYear } from "@/types";
+
+async function apiGet<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to load ${url}`);
+  }
+  return res.json();
+}
+
+async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.message ?? `Failed to save (${url})`);
+  }
+  return res.json();
+}
 
 export async function getStreams() {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  return mockStreams;
+  return apiGet<Array<{ id: string; name: string }>>("/api/curriculum/streams");
 }
 
 export async function createStream(data: { name: string }) {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  const stream = {
-    id: `stream-${Date.now()}`,
-    name: data.name,
-  };
-  mockStreams.push(stream);
-  return stream;
+  return apiSend<{ id: string; name: string }>("/api/curriculum/streams", "POST", data);
 }
 
 export async function getProfessionalYears(streamId?: string) {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  if (streamId) {
-    return mockProfessionalYears.filter((py) => py.streamId === streamId);
-  }
-  return mockProfessionalYears;
+  const url = streamId
+    ? `/api/curriculum/professional-years?streamId=${encodeURIComponent(streamId)}`
+    : "/api/curriculum/professional-years";
+  return apiGet<ProfessionalYear[]>(url);
+}
+
+export async function getCurriculumDepartments() {
+  return apiGet<Department[]>("/api/curriculum/departments");
 }
 
 export async function getSubjects(professionalYearId?: string) {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  if (professionalYearId) {
-    return mockSubjects.filter((s) => s.professionalYearId === professionalYearId);
-  }
-  return mockSubjects;
+  const url = professionalYearId
+    ? `/api/curriculum/subjects?professionalYearId=${encodeURIComponent(professionalYearId)}`
+    : "/api/curriculum/subjects";
+  return apiGet<Subject[]>(url);
 }
 
 export async function createSubject(data: Omit<Subject, "id">): Promise<Subject> {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  const subject: Subject = {
-    ...data,
-    id: `sub-${Date.now()}`,
-  };
-  mockSubjects.push(subject);
-  return subject;
+  return apiSend<Subject>("/api/curriculum/subjects", "POST", data);
 }
 
 export async function updateSubject(id: string, data: Partial<Omit<Subject, "id">>): Promise<Subject> {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  const index = mockSubjects.findIndex((s) => s.id === id);
-  if (index === -1) {
-    throw new Error("Subject not found");
-  }
-  mockSubjects[index] = { ...mockSubjects[index], ...data };
-  return mockSubjects[index];
+  return apiSend<Subject>(`/api/curriculum/subjects/${id}`, "PATCH", data);
 }
 
 export async function getTopics(subjectId?: string) {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  if (subjectId) {
-    return mockTopics.filter((t) => t.subjectId === subjectId);
-  }
-  return mockTopics;
+  const url = subjectId
+    ? `/api/curriculum/topics?subjectId=${encodeURIComponent(subjectId)}`
+    : "/api/curriculum/topics";
+  return apiGet<Topic[]>(url);
 }
 
 export async function createTopic(data: Omit<Topic, "id">): Promise<Topic> {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  const topic: Topic = {
-    ...data,
-    id: `topic-${Date.now()}`,
-  };
-  mockTopics.push(topic);
-  return topic;
+  return apiSend<Topic>("/api/curriculum/topics", "POST", data);
 }
 
 export async function updateTopic(id: string, data: Partial<Omit<Topic, "id">>): Promise<Topic> {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  const index = mockTopics.findIndex((t) => t.id === id);
-  if (index === -1) {
-    throw new Error("Topic not found");
-  }
-  mockTopics[index] = { ...mockTopics[index], ...data };
-  return mockTopics[index];
+  return apiSend<Topic>(`/api/curriculum/topics/${id}`, "PATCH", data);
 }
 
-export async function getCompetencies(topicId?: string) {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  if (topicId) {
-    return mockCompetencies.filter((c) => c.topicId === topicId);
-  }
-  return mockCompetencies;
+export async function getSubtopics(topicId?: string) {
+  const url = topicId
+    ? `/api/curriculum/subtopics?topicId=${encodeURIComponent(topicId)}`
+    : "/api/curriculum/subtopics";
+  return apiGet<Subtopic[]>(url);
+}
+
+export async function createSubtopic(data: Omit<Subtopic, "id">): Promise<Subtopic> {
+  return apiSend<Subtopic>("/api/curriculum/subtopics", "POST", data);
+}
+
+export async function updateSubtopic(id: string, data: Partial<Omit<Subtopic, "id">>): Promise<Subtopic> {
+  return apiSend<Subtopic>(`/api/curriculum/subtopics/${id}`, "PATCH", data);
+}
+
+export async function getCompetencies(subtopicId?: string) {
+  const url = subtopicId
+    ? `/api/curriculum/competencies?subtopicId=${encodeURIComponent(subtopicId)}`
+    : "/api/curriculum/competencies";
+  return apiGet<Competency[]>(url);
 }
 
 export async function createCompetency(data: Omit<Competency, "id">): Promise<Competency> {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  const competency: Competency = {
-    ...data,
-    id: `comp-${Date.now()}`,
-  };
-  mockCompetencies.push(competency);
-  return competency;
+  return apiSend<Competency>("/api/curriculum/competencies", "POST", data);
 }
 
 export async function updateCompetency(id: string, data: Partial<Omit<Competency, "id">>): Promise<Competency> {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  const index = mockCompetencies.findIndex((c) => c.id === id);
-  if (index === -1) {
-    throw new Error("Competency not found");
-  }
-  mockCompetencies[index] = { ...mockCompetencies[index], ...data };
-  return mockCompetencies[index];
+  return apiSend<Competency>(`/api/curriculum/competencies/${id}`, "PATCH", data);
+}
+
+export interface ImportCompetencyRow {
+  subject?: string;
+  topic: string;
+  subtopic: string;
+  code: string;
+  title: string;
+  level?: string;
+  core: boolean;
+  sheet?: string;
+  rowNumber?: number;
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: { row: number; sheet: string; message: string }[];
+}
+
+export async function importCompetencies(
+  defaultSubjectId: string | undefined,
+  mode: "insert" | "update" | "upsert",
+  rows: ImportCompetencyRow[]
+): Promise<ImportResult> {
+  return apiSend<ImportResult>("/api/curriculum/import", "POST", { defaultSubjectId, mode, rows });
 }
 
 export async function getQuestionTemplates(competencyId?: string) {

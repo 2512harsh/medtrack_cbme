@@ -119,7 +119,7 @@ export default function SubjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={subject.name} description={<>{subject.code} • Topics and competencies</>} />
+      <PageHeader title={subject.name} description={<>{subject.code} • Topics and competencies</>} dataSource="live" />
 
       <AsyncContent
         data={topics}

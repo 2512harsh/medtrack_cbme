@@ -140,7 +140,7 @@ export default function TopicDetailPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title={topic.title} description="Competencies under this topic" />
+      <PageHeader title={topic.title} description="Competencies under this topic" dataSource="live" />
 
       <AsyncContent
         data={competencies}

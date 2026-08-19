@@ -96,6 +96,7 @@ export default function StreamsPage() {
       <PageHeader
         title="Streams"
         description="Manage medical program streams"
+        dataSource="live"
         actions={
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />

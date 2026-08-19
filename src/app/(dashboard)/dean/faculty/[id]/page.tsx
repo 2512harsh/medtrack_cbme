@@ -239,7 +239,7 @@ export default function FacultyDetailPage() {
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm font-medium">Assigned Competencies</span>
                 <span className="text-sm text-muted-foreground">
-                  {assignments.filter((a) => a.competency?.topicId).length} covered
+                  {assignments.filter((a) => a.competency?.subtopicId).length} covered
                 </span>
               </div>
               <ProgressBar completed={assignments.length} total={assignments.length} />
