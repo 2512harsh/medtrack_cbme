@@ -1,4 +1,4 @@
-import type { Stream, ProfessionalYear, Subject, Topic, Competency, QuestionTemplate } from "@/types";
+import type { Stream, ProfessionalYear, Subject, Topic, Subtopic, Competency, QuestionTemplate } from "@/types";
 
 export const mockStreams: Stream[] = [
   {
@@ -181,10 +181,19 @@ export const mockTopics: Topic[] = [
   },
 ];
 
+export const mockSubtopics: Subtopic[] = mockTopics.map((topic, index) => ({
+  id: `subtopic-${index + 1}`,
+  topicId: topic.id,
+  title: "General",
+  displayOrder: 1,
+}));
+
+const subtopicIdByTopicId = new Map(mockSubtopics.map((s) => [s.topicId, s.id]));
+
 export const mockCompetencies: Competency[] = [
   {
     id: "comp-1",
-    topicId: "topic-1",
+    subtopicId: subtopicIdByTopicId.get("topic-1")!,
     competencyCode: "AN8.1",
     competencyTitle: "Upper Limb Overview",
     competencyDescription: "Describe the bony framework, joints, and movements of the upper limb",
@@ -194,7 +203,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-2",
-    topicId: "topic-1",
+    subtopicId: subtopicIdByTopicId.get("topic-1")!,
     competencyCode: "AN8.2",
     competencyTitle: "Upper Limb - Bones and Joints",
     competencyDescription: "Identify and describe the bones and joints of the upper limb",
@@ -204,7 +213,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-3",
-    topicId: "topic-1",
+    subtopicId: subtopicIdByTopicId.get("topic-1")!,
     competencyCode: "AN8.3",
     competencyTitle: "Upper Limb - Muscles",
     competencyDescription: "Describe the muscles of the upper limb and their actions",
@@ -214,7 +223,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-4",
-    topicId: "topic-1",
+    subtopicId: subtopicIdByTopicId.get("topic-1")!,
     competencyCode: "AN8.4",
     competencyTitle: "Upper Limb - Nerves and Vessels",
     competencyDescription: "Describe the nerve supply and blood supply of the upper limb",
@@ -224,7 +233,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-5",
-    topicId: "topic-2",
+    subtopicId: subtopicIdByTopicId.get("topic-2")!,
     competencyCode: "AN9.1",
     competencyTitle: "Lower Limb Overview",
     competencyDescription: "Describe the bony framework, joints, and movements of the lower limb",
@@ -234,7 +243,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-6",
-    topicId: "topic-2",
+    subtopicId: subtopicIdByTopicId.get("topic-2")!,
     competencyCode: "AN9.2",
     competencyTitle: "Lower Limb - Bones and Joints",
     competencyDescription: "Identify and describe the bones and joints of the lower limb",
@@ -244,7 +253,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-7",
-    topicId: "topic-3",
+    subtopicId: subtopicIdByTopicId.get("topic-3")!,
     competencyCode: "AN10.1",
     competencyTitle: "Head and Neck Overview",
     competencyDescription: "Describe the structures of the head and neck",
@@ -254,7 +263,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-8",
-    topicId: "topic-3",
+    subtopicId: subtopicIdByTopicId.get("topic-3")!,
     competencyCode: "AN10.2",
     competencyTitle: "Brain and Cranial Nerves",
     competencyDescription: "Describe the anatomy of the brain and cranial nerves",
@@ -264,7 +273,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-9",
-    topicId: "topic-4",
+    subtopicId: subtopicIdByTopicId.get("topic-4")!,
     competencyCode: "AN11.1",
     competencyTitle: "Thorax - Thoracic Wall",
     competencyDescription: "Describe the thoracic wall and its contents",
@@ -274,7 +283,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-10",
-    topicId: "topic-4",
+    subtopicId: subtopicIdByTopicId.get("topic-4")!,
     competencyCode: "AN11.2",
     competencyTitle: "Heart - Anatomy",
     competencyDescription: "Describe the anatomy of the heart",
@@ -284,7 +293,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-11",
-    topicId: "topic-9",
+    subtopicId: subtopicIdByTopicId.get("topic-9")!,
     competencyCode: "PY1.1",
     competencyTitle: "Cell Physiology",
     competencyDescription: "Describe the basic functions of cells",
@@ -294,7 +303,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-12",
-    topicId: "topic-9",
+    subtopicId: subtopicIdByTopicId.get("topic-9")!,
     competencyCode: "PY1.2",
     competencyTitle: "Muscle Physiology",
     competencyDescription: "Describe the physiology of skeletal, smooth, and cardiac muscle",
@@ -304,7 +313,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-13",
-    topicId: "topic-10",
+    subtopicId: subtopicIdByTopicId.get("topic-10")!,
     competencyCode: "PY2.1",
     competencyTitle: "Cardiac Cycle",
     competencyDescription: "Describe the cardiac cycle and cardiac output",
@@ -314,7 +323,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-14",
-    topicId: "topic-10",
+    subtopicId: subtopicIdByTopicId.get("topic-10")!,
     competencyCode: "PY2.2",
     competencyTitle: "Blood Pressure Regulation",
     competencyDescription: "Describe the mechanisms of blood pressure regulation",
@@ -324,7 +333,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-15",
-    topicId: "topic-11",
+    subtopicId: subtopicIdByTopicId.get("topic-11")!,
     competencyCode: "PY3.1",
     competencyTitle: "Respiratory Physiology",
     competencyDescription: "Describe the mechanics of breathing and gas exchange",
@@ -334,7 +343,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-16",
-    topicId: "topic-11",
+    subtopicId: subtopicIdByTopicId.get("topic-11")!,
     competencyCode: "PY3.2",
     competencyTitle: "Nerve Physiology",
     competencyDescription: "Describe the physiology of nerve impulses and synaptic transmission",
@@ -344,7 +353,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-17",
-    topicId: "topic-14",
+    subtopicId: subtopicIdByTopicId.get("topic-14")!,
     competencyCode: "BI1.1",
     competencyTitle: "Biomolecules",
     competencyDescription: "Describe the structure and function of biomolecules",
@@ -354,7 +363,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-18",
-    topicId: "topic-14",
+    subtopicId: subtopicIdByTopicId.get("topic-14")!,
     competencyCode: "BI1.2",
     competencyTitle: "Protein Structure",
     competencyDescription: "Describe the levels of protein structure",
@@ -364,7 +373,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-19",
-    topicId: "topic-15",
+    subtopicId: subtopicIdByTopicId.get("topic-15")!,
     competencyCode: "BI2.1",
     competencyTitle: "Enzyme Kinetics",
     competencyDescription: "Describe enzyme kinetics and enzyme regulation",
@@ -374,7 +383,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-20",
-    topicId: "topic-16",
+    subtopicId: subtopicIdByTopicId.get("topic-16")!,
     competencyCode: "BI3.1",
     competencyTitle: "Glycolysis",
     competencyDescription: "Describe the glycolysis pathway",
@@ -384,7 +393,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-21",
-    topicId: "topic-16",
+    subtopicId: subtopicIdByTopicId.get("topic-16")!,
     competencyCode: "BI3.2",
     competencyTitle: "Gluconeogenesis",
     competencyDescription: "Describe the gluconeogenesis pathway",
@@ -394,7 +403,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-22",
-    topicId: "topic-17",
+    subtopicId: subtopicIdByTopicId.get("topic-17")!,
     competencyCode: "BI4.1",
     competencyTitle: "Fatty Acid Oxidation",
     competencyDescription: "Describe beta-oxidation of fatty acids",
@@ -404,7 +413,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-23",
-    topicId: "topic-18",
+    subtopicId: subtopicIdByTopicId.get("topic-18")!,
     competencyCode: "BI5.1",
     competencyTitle: "Amino Acid Metabolism",
     competencyDescription: "Describe amino acid metabolism and transamination",
@@ -414,7 +423,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-24",
-    topicId: "topic-19",
+    subtopicId: subtopicIdByTopicId.get("topic-19")!,
     competencyCode: "BI6.1",
     competencyTitle: "Nucleotide Metabolism",
     competencyDescription: "Describe purine and pyrimidine metabolism",
@@ -424,7 +433,7 @@ export const mockCompetencies: Competency[] = [
   },
   {
     id: "comp-25",
-    topicId: "topic-20",
+    subtopicId: subtopicIdByTopicId.get("topic-20")!,
     competencyCode: "BI7.1",
     competencyTitle: "DNA Replication",
     competencyDescription: "Describe the process of DNA replication",

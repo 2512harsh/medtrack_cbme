@@ -61,7 +61,6 @@ const navigation = [
       { title: "Subjects", href: "/curriculum/subjects", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
       { title: "Topics", href: "/curriculum/topics", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
       { title: "Competencies", href: "/curriculum/competencies", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
-      { title: "Question Templates", href: "/curriculum/templates", roles: ["Super Admin", "Dean", "HOD"] },
       { title: "Excel Import", href: "/curriculum/import", roles: ["Super Admin"] },
     ],
   },

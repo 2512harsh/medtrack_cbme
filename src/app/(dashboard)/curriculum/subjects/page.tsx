@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getSubjects, getProfessionalYears, createSubject, updateSubject } from "@/features/curriculum/services/curriculum";
-import { getDepartments } from "@/features/super-admin/services/superAdmin";
+import { getSubjects, getProfessionalYears, getCurriculumDepartments, createSubject, updateSubject } from "@/features/curriculum/services/curriculum";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -69,7 +68,7 @@ export default function SubjectsPage() {
       const [subjects, years, depts] = await Promise.all([
         getSubjects(),
         getProfessionalYears(),
-        getDepartments(),
+        getCurriculumDepartments(),
       ]);
       setProfessionalYears(years);
       setDepartments(depts);
@@ -187,6 +186,7 @@ export default function SubjectsPage() {
       <PageHeader
         title="Subjects"
         description="Manage subjects within professional years"
+        dataSource="live"
         actions={
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />

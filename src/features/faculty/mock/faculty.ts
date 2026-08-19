@@ -137,7 +137,7 @@ export const mockAssignedCompetencies: CompetencyAssignment[] = [
     },
     competency: {
       id: "comp-1",
-      topicId: "topic-1",
+      subtopicId: "subtopic-1",
       competencyCode: "AN8.1",
       competencyTitle: "Upper Limb Overview",
       competencyDescription: "Describe the bony framework, joints, and movements of the upper limb",
@@ -174,7 +174,7 @@ export const mockAssignedCompetencies: CompetencyAssignment[] = [
     },
     competency: {
       id: "comp-2",
-      topicId: "topic-1",
+      subtopicId: "subtopic-1",
       competencyCode: "AN8.2",
       competencyTitle: "Upper Limb - Bones and Joints",
       competencyDescription: "Identify and describe the bones and joints of the upper limb",
@@ -211,7 +211,7 @@ export const mockAssignedCompetencies: CompetencyAssignment[] = [
     },
     competency: {
       id: "comp-11",
-      topicId: "topic-9",
+      subtopicId: "subtopic-9",
       competencyCode: "PY1.1",
       competencyTitle: "Cell Physiology",
       competencyDescription: "Describe the basic functions of cells",
@@ -248,7 +248,7 @@ export const mockAssignedCompetencies: CompetencyAssignment[] = [
     },
     competency: {
       id: "comp-13",
-      topicId: "topic-10",
+      subtopicId: "subtopic-10",
       competencyCode: "PY2.1",
       competencyTitle: "Cardiac Cycle",
       competencyDescription: "Describe the cardiac cycle and cardiac output",

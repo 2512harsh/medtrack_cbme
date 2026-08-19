@@ -71,7 +71,7 @@ export default function ProfessionalYearsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Professional Years" description="Manage academic years within streams" />
+      <PageHeader title="Professional Years" description="Manage academic years within streams" dataSource="live" />
 
       <AsyncContent
         data={data}

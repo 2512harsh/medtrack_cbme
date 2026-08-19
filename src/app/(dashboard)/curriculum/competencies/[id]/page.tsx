@@ -127,6 +127,7 @@ export default function CompetencyDetailPage() {
         <PageHeader
           title={<>{competency.competencyCode} - {competency.competencyTitle}</>}
           description={competency.competencyDescription}
+          dataSource="live"
         />
         <div className="mt-2 flex items-center gap-2">
           <StatusBadge variant="success">{competency.status}</StatusBadge>

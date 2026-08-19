@@ -381,7 +381,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[0],
     competency: {
       id: "comp-1",
-      topicId: "topic-1",
+      subtopicId: "subtopic-1",
       competencyCode: "AN8.1",
       competencyTitle: "Upper Limb Overview",
       competencyDescription: "Describe the bony framework, joints, and movements of the upper limb",
@@ -400,7 +400,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[0],
     competency: {
       id: "comp-2",
-      topicId: "topic-1",
+      subtopicId: "subtopic-1",
       competencyCode: "AN8.2",
       competencyTitle: "Upper Limb - Bones and Joints",
       competencyDescription: "Identify and describe the bones and joints of the upper limb",
@@ -419,7 +419,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[1],
     competency: {
       id: "comp-11",
-      topicId: "topic-9",
+      subtopicId: "subtopic-9",
       competencyCode: "PY1.1",
       competencyTitle: "Cell Physiology",
       competencyDescription: "Describe the basic functions of cells",
@@ -438,7 +438,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[1],
     competency: {
       id: "comp-12",
-      topicId: "topic-9",
+      subtopicId: "subtopic-9",
       competencyCode: "PY1.2",
       competencyTitle: "Muscle Physiology",
       competencyDescription: "Describe the physiology of skeletal, smooth, and cardiac muscle",
@@ -457,7 +457,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[2],
     competency: {
       id: "comp-17",
-      topicId: "topic-14",
+      subtopicId: "subtopic-14",
       competencyCode: "BI1.1",
       competencyTitle: "Biomolecules",
       competencyDescription: "Describe the structure and function of biomolecules",
@@ -476,7 +476,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[2],
     competency: {
       id: "comp-18",
-      topicId: "topic-14",
+      subtopicId: "subtopic-14",
       competencyCode: "BI1.2",
       competencyTitle: "Protein Structure",
       competencyDescription: "Describe the levels of protein structure",
@@ -495,7 +495,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[3],
     competency: {
       id: "comp-22",
-      topicId: "topic-17",
+      subtopicId: "subtopic-17",
       competencyCode: "BI4.1",
       competencyTitle: "Fatty Acid Oxidation",
       competencyDescription: "Describe beta-oxidation of fatty acids",
@@ -514,7 +514,7 @@ export const mockCompetencyAssignments: CompetencyAssignment[] = [
     faculty: mockFaculty[3],
     competency: {
       id: "comp-23",
-      topicId: "topic-18",
+      subtopicId: "subtopic-18",
       competencyCode: "BI5.1",
       competencyTitle: "Amino Acid Metabolism",
       competencyDescription: "Describe amino acid metabolism and transamination",

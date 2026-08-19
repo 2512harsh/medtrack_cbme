@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getTopics, getSubjects, getCompetencies } from "@/features/curriculum/services/curriculum";
+import { getTopics, getSubjects, getSubtopics, getCompetencies } from "@/features/curriculum/services/curriculum";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { BookText } from "lucide-react";
@@ -57,19 +57,23 @@ export default function TopicsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [topics, subjects, competencies] = await Promise.all([
+      const [topics, subjects, subtopics, competencies] = await Promise.all([
         getTopics(),
         getSubjects(),
+        getSubtopics(),
         getCompetencies(),
       ]);
       setData(
-        topics.map((t: Topic) => ({
-          id: t.id,
-          title: t.title,
-          subject: subjects.find((s) => s.id === t.subjectId)?.name ?? "Unassigned",
-          displayOrder: t.displayOrder || 1,
-          competencyCount: competencies.filter((c) => c.topicId === t.id).length,
-        }))
+        topics.map((t: Topic) => {
+          const subtopicIds = new Set(subtopics.filter((s) => s.topicId === t.id).map((s) => s.id));
+          return {
+            id: t.id,
+            title: t.title,
+            subject: subjects.find((s) => s.id === t.subjectId)?.name ?? "Unassigned",
+            displayOrder: t.displayOrder || 1,
+            competencyCount: competencies.filter((c) => subtopicIds.has(c.subtopicId)).length,
+          };
+        })
       );
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load topics"));
@@ -84,7 +88,7 @@ export default function TopicsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Topics" description="Manage topics within subjects" />
+      <PageHeader title="Topics" description="Manage topics within subjects" dataSource="live" />
 
       <AsyncContent
         data={data}

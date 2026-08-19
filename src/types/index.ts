@@ -90,9 +90,16 @@ export interface Topic {
   displayOrder?: number;
 }
 
-export interface Competency {
+export interface Subtopic {
   id: string;
   topicId: string;
+  title: string;
+  displayOrder?: number;
+}
+
+export interface Competency {
+  id: string;
+  subtopicId: string;
   competencyCode: string;
   competencyTitle: string;
   competencyDescription?: string;
