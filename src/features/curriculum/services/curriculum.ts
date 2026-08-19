@@ -1,5 +1,4 @@
-import { mockQuestionTemplates } from "../mock/curriculum";
-import type { Subject, Topic, Subtopic, Competency, Department, ProfessionalYear } from "@/types";
+import type { Subject, Topic, Subtopic, Competency, Department, ProfessionalYear, QuestionTemplate } from "@/types";
 
 async function apiGet<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -129,9 +128,17 @@ export async function importCompetencies(
 }
 
 export async function getQuestionTemplates(competencyId?: string) {
-  await new Promise((resolve) => setTimeout(resolve, 300));
-  if (competencyId) {
-    return mockQuestionTemplates.filter((qt) => qt.competencyId === competencyId);
-  }
-  return mockQuestionTemplates;
+  const url = competencyId
+    ? `/api/curriculum/templates?competencyId=${encodeURIComponent(competencyId)}`
+    : "/api/curriculum/templates";
+  return apiGet<QuestionTemplate[]>(url);
+}
+
+export async function createQuestionTemplate(data: {
+  competencyId: string;
+  title: string;
+  instructions?: string;
+  questions: { questionText: string; required: boolean }[];
+}): Promise<QuestionTemplate> {
+  return apiSend<QuestionTemplate>("/api/curriculum/templates", "POST", data);
 }
