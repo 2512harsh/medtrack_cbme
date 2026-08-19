@@ -13,7 +13,6 @@ import {
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { useAuth } from "@/features/authentication/hooks/useAuth";
 import type { CompetencyAssignment } from "@/types";
 
 type CompAssignmentRow = {
@@ -26,8 +25,6 @@ type CompAssignmentRow = {
 };
 
 export default function CompetencyAssignmentPage() {
-  const { user } = useAuth();
-  const departmentId = user?.departmentId;
   const [data, setData] = useState<CompAssignmentRow[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -50,21 +47,23 @@ export default function CompetencyAssignmentPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const assignments = await getCompetencyAssignments(departmentId);
+      // Not filtered by departmentId: the mock logged-in user's departmentId
+      // ("dept-1") doesn't match real department ids now that this is DB-backed.
+      const assignments = await getCompetencyAssignments();
       setData(rowsFrom(assignments));
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load competency assignments"));
     } finally {
       setIsLoading(false);
     }
-  }, [departmentId]);
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const refreshList = async () => {
-    const assignments = await getCompetencyAssignments(departmentId);
+    const assignments = await getCompetencyAssignments();
     setData(rowsFrom(assignments));
   };
 

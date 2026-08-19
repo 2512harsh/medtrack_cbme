@@ -10,13 +10,12 @@ import {
   deactivateFaculty,
   createFaculty,
   updateFaculty,
-  getDepartments,
 } from "@/features/dean/services/dean";
+import { getCurriculumDepartments } from "@/features/curriculum/services/curriculum";
 import {
   FacultyFormDialog,
   type FacultyFormValues,
 } from "@/features/dean/components/FacultyFormDialog";
-import { useAuth } from "@/features/authentication/hooks/useAuth";
 import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
@@ -34,8 +33,6 @@ type FacultyRow = {
 };
 
 export default function FacultyManagementPage() {
-  const { user } = useAuth();
-  const departmentId = user?.departmentId;
   const [data, setData] = useState<FacultyRow[] | undefined>(undefined);
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -52,7 +49,9 @@ export default function FacultyManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [faculty, depts] = await Promise.all([getFaculty(departmentId), getDepartments()]);
+      // Not filtered by departmentId: the mock logged-in user's departmentId
+      // ("dept-1") doesn't match real department ids now that this is DB-backed.
+      const [faculty, depts] = await Promise.all([getFaculty(), getCurriculumDepartments()]);
       setFacultyList(faculty);
       setDepartments(depts);
       setData(
@@ -74,11 +73,10 @@ export default function FacultyManagementPage() {
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [departmentId]);
+  }, []);
 
   const refreshList = async () => {
-    const faculty = await getFaculty(departmentId);
+    const faculty = await getFaculty();
     setFacultyList(faculty);
     setData(
       faculty.map((f) => ({
@@ -108,53 +106,10 @@ export default function FacultyManagementPage() {
     setIsSaving(true);
     try {
       if (editingFaculty) {
-        const user = editingFaculty.user ?? {
-          id: editingFaculty.userId,
-          firstName: "",
-          lastName: "",
-          email: "",
-          role: "Faculty" as const,
-          status: "ACTIVE" as const,
-          departmentId: values.departmentId,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        await updateFaculty(editingFaculty.id, {
-          departmentId: values.departmentId,
-          designation: values.designation,
-          employeeCode: values.employeeCode,
-          specialization: values.specialization || undefined,
-          user: {
-            ...user,
-            firstName: values.firstName,
-            lastName: values.lastName,
-            email: values.email,
-            status: values.status,
-            departmentId: values.departmentId,
-            updatedAt: new Date().toISOString(),
-          },
-        });
+        await updateFaculty(editingFaculty.id, values);
         toast.success("Faculty updated successfully");
       } else {
-        const userId = `user-fac-${Date.now()}`;
-        await createFaculty({
-          userId,
-          departmentId: values.departmentId,
-          designation: values.designation,
-          employeeCode: values.employeeCode,
-          specialization: values.specialization || undefined,
-          user: {
-            id: userId,
-            firstName: values.firstName,
-            lastName: values.lastName,
-            email: values.email,
-            role: "Faculty",
-            status: values.status,
-            departmentId: values.departmentId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        });
+        await createFaculty(values);
         toast.success("Faculty added successfully");
       }
       setFormOpen(false);

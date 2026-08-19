@@ -73,7 +73,9 @@ export default function DeanDashboard() {
       const [department, allDepartments, faculty, students] = await Promise.all([
         departmentId ? getDepartmentById(departmentId) : Promise.resolve(undefined),
         getDepartments(),
-        getFaculty(departmentId),
+        // Not filtered by departmentId: faculty now comes from the real DB, and the
+        // mock logged-in user's departmentId ("dept-1") doesn't match real department ids.
+        getFaculty(),
         getStudents(departmentId),
       ]);
 
