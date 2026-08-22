@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getSubjects, getProfessionalYears, getCurriculumDepartments, createSubject, updateSubject } from "@/features/curriculum/services/curriculum";
+import { getSubjects, getProfessionalYears, getCurriculumDepartments, getTopics, getSubtopics, getCompetencies, createSubject, updateSubject } from "@/features/curriculum/services/curriculum";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,7 +16,7 @@ import {
   SubjectFormDialog,
   type SubjectFormValues,
 } from "@/features/curriculum/components/SubjectFormDialog";
-import type { Subject, ProfessionalYear, Department } from "@/types";
+import type { Subject, ProfessionalYear, Department, Topic, Subtopic, Competency } from "@/types";
 
 type SubjectRow = {
   id: string;
@@ -42,38 +42,46 @@ export default function SubjectsPage() {
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const toRows = (subjects: Subject[], years: ProfessionalYear[]): SubjectRow[] => {
+  const toRows = (
+    subjects: Subject[],
+    years: ProfessionalYear[],
+    topics: Topic[],
+    subtopics: Subtopic[],
+    competencies: Competency[]
+  ): SubjectRow[] => {
     const yearName = (id: string) => years.find((y) => y.id === id)?.name ?? "Unknown Year";
-    const countBySubject = (subjectId: string, target: "topics" | "competencies") => {
-      // Mock counts kept simple; derived deterministically per subject.
-      const base = parseInt(subjectId.replace(/\D/g, ""), 10) || 1;
-      return target === "topics" ? ((base % 4) + 2) : ((base % 5) + 3);
-    };
-    return subjects.map((s) => ({
-      id: s.id,
-      name: s.name,
-      code: s.code,
-      professionalYear: yearName(s.professionalYearId),
-      professionalYearId: s.professionalYearId,
-      departmentId: s.departmentId,
-      topicCount: countBySubject(s.id, "topics"),
-      competencyCount: countBySubject(s.id, "competencies"),
-    }));
+    return subjects.map((s) => {
+      const subjectTopicIds = new Set(topics.filter((t) => t.subjectId === s.id).map((t) => t.id));
+      const subjectSubtopicIds = new Set(subtopics.filter((st) => subjectTopicIds.has(st.topicId)).map((st) => st.id));
+      return {
+        id: s.id,
+        name: s.name,
+        code: s.code,
+        professionalYear: yearName(s.professionalYearId),
+        professionalYearId: s.professionalYearId,
+        departmentId: s.departmentId,
+        topicCount: subjectTopicIds.size,
+        competencyCount: competencies.filter((c) => subjectSubtopicIds.has(c.subtopicId)).length,
+      };
+    });
   };
 
   const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [subjects, years, depts] = await Promise.all([
+      const [subjects, years, depts, topics, subtopics, competencies] = await Promise.all([
         getSubjects(),
         getProfessionalYears(),
         getCurriculumDepartments(),
+        getTopics(),
+        getSubtopics(),
+        getCompetencies(),
       ]);
       setProfessionalYears(years);
       setDepartments(depts);
       setSubjectList(subjects);
-      setData(toRows(subjects, years));
+      setData(toRows(subjects, years, topics, subtopics, competencies));
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load subjects"));
     } finally {
@@ -86,9 +94,14 @@ export default function SubjectsPage() {
   }, []);
 
   const refreshList = async () => {
-    const subjects = await getSubjects();
+    const [subjects, topics, subtopics, competencies] = await Promise.all([
+      getSubjects(),
+      getTopics(),
+      getSubtopics(),
+      getCompetencies(),
+    ]);
     setSubjectList(subjects);
-    setData(toRows(subjects, professionalYears));
+    setData(toRows(subjects, professionalYears, topics, subtopics, competencies));
   };
 
   const openCreate = () => {

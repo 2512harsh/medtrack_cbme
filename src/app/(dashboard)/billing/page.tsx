@@ -307,6 +307,7 @@ export default function BillingPage() {
             <div className="space-y-2">
               <Label>Plan</Label>
               <Select
+                items={{ Institution: "Institution", Department: "Department", Enterprise: "Enterprise" }}
                 value={form.plan}
                 onValueChange={(value) => setForm({ ...form, plan: value ?? "" })}
               >

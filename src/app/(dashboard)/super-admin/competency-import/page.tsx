@@ -351,7 +351,12 @@ export default function CompetencyImportPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="library-type">Library Type</Label>
-                  <Select value={libraryType} onValueChange={(v) => setLibraryType(v ?? "professional-year")} disabled={isBusy}>
+                  <Select
+                    items={{ "professional-year": "Professional Year", subject: "Subject", topic: "Topic" }}
+                    value={libraryType}
+                    onValueChange={(v) => setLibraryType(v ?? "professional-year")}
+                    disabled={isBusy}
+                  >
                     <SelectTrigger className="w-full" id="library-type">
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
