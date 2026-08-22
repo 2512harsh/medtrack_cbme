@@ -277,7 +277,12 @@ export default function StudentImportPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="batch">Batch</Label>
-                  <Select value={batch} onValueChange={(v) => setBatch(v ?? "mbbs2025")} disabled={isBusy}>
+                  <Select
+                    items={{ mbbs2025: "MBBS 2025", mbbs2024: "MBBS 2024", bds2025: "BDS 2025" }}
+                    value={batch}
+                    onValueChange={(v) => setBatch(v ?? "mbbs2025")}
+                    disabled={isBusy}
+                  >
                     <SelectTrigger className="w-full" id="batch">
                       <SelectValue placeholder="Select batch" />
                     </SelectTrigger>

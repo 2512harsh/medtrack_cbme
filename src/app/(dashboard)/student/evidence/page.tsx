@@ -203,6 +203,7 @@ export default function EvidenceUploadPage() {
           <div className="space-y-2">
             <Label>Competency *</Label>
             <Select
+              items={competencies.map((c) => ({ value: c.id, label: c.label }))}
               value={form.competencyId}
               onValueChange={(value) =>
                 setForm({ ...form, competencyId: value ?? "" })

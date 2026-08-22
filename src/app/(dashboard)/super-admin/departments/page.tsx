@@ -331,6 +331,7 @@ export default function DepartmentsPage() {
             <div className="space-y-2">
               <Label>Institution *</Label>
               <Select
+                items={institutions.map((inst) => ({ value: inst.id, label: inst.name }))}
                 value={form.institutionId}
                 onValueChange={(value) => setForm({ ...form, institutionId: value ?? "" })}
               >

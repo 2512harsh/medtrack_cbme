@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { getSubjects, getTopics } from "@/features/curriculum/services/curriculum";
+import { getSubjects, getTopics, getSubtopics, getCompetencies } from "@/features/curriculum/services/curriculum";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { ChevronRight } from "lucide-react";
@@ -61,14 +61,21 @@ export default function SubjectDetailPage() {
       setSubject(found || null);
       
       if (found) {
-        const topicData = await getTopics(found.id);
+        const [topicData, subtopicData, competencyData] = await Promise.all([
+          getTopics(found.id),
+          getSubtopics(),
+          getCompetencies(),
+        ]);
         setTopics(
-          topicData.map((t: Topic) => ({
-            id: t.id,
-            title: t.title,
-            subjectName: found.name || "",
-            competencyCount: 3,
-          }))
+          topicData.map((t: Topic) => {
+            const subtopicIds = new Set(subtopicData.filter((s) => s.topicId === t.id).map((s) => s.id));
+            return {
+              id: t.id,
+              title: t.title,
+              subjectName: found.name || "",
+              competencyCount: competencyData.filter((c) => subtopicIds.has(c.subtopicId)).length,
+            };
+          })
         );
       } else {
         setTopics([]);

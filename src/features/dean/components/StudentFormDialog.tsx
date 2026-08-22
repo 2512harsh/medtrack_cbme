@@ -184,6 +184,7 @@ export function StudentFormDialog({
             <div className="space-y-2">
               <Label htmlFor="stream">Stream *</Label>
               <Select
+                items={streams.map((s) => ({ value: s.id, label: s.name }))}
                 value={values.streamId}
                 onValueChange={(v) => {
                   set("streamId", v ?? "");
@@ -209,6 +210,9 @@ export function StudentFormDialog({
             <div className="space-y-2">
               <Label htmlFor="professionalYear">Professional Year *</Label>
               <Select
+                items={professionalYears
+                  .filter((p) => !values.streamId || p.streamId === values.streamId)
+                  .map((p) => ({ value: p.id, label: p.name }))}
                 value={values.professionalYearId}
                 onValueChange={(v) => set("professionalYearId", v ?? "")}
                 disabled={isSaving}
