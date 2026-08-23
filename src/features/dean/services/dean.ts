@@ -1,12 +1,7 @@
 import type { Faculty, Student, StudentAllocation, CompetencyAssignment, Department } from "@/types";
-import {
-  mockFaculty,
-  mockStudents,
-  mockStudentAllocations,
-  mockCompetencyAssignments,
-} from "@/features/dean/mock/dean";
-import { mockDepartments, mockHodAccounts, type HodAccount } from "@/features/super-admin/mock/superAdmin";
 import { mockSubjects } from "@/features/curriculum/mock/curriculum";
+import { mockDepartments as legacyMockDepartments } from "@/features/super-admin/mock/superAdmin";
+import type { HodAccount } from "@/features/super-admin/mock/superAdmin";
 
 async function apiGet<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -16,11 +11,11 @@ async function apiGet<T>(url: string): Promise<T> {
   return res.json();
 }
 
-async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+async function apiSend<T>(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
     const payload = await res.json().catch(() => null);
@@ -30,67 +25,32 @@ async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown):
 }
 
 export function getDepartments(): Promise<Department[]> {
-  return Promise.resolve(mockDepartments);
+  return apiGet<Department[]>("/api/curriculum/departments");
 }
 
-export function getDepartmentById(id: string): Promise<Department | undefined> {
-  return Promise.resolve(mockDepartments.find((d) => d.id === id));
+export async function getDepartmentById(id: string): Promise<Department | undefined> {
+  const res = await fetch(`/api/curriculum/departments/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load department ${id}`);
+  return res.json();
 }
 
-export function getHodAccounts(institutionId?: string): Promise<HodAccount[]> {
-  if (!institutionId) {
-    return Promise.resolve(mockHodAccounts);
-  }
-  const deptIds = new Set(
-    mockDepartments.filter((d) => d.institutionId === institutionId).map((d) => d.id)
-  );
-  return Promise.resolve(mockHodAccounts.filter((h) => h.departmentId && deptIds.has(h.departmentId)));
+export function getHodAccounts(filters?: { institutionId?: string; departmentId?: string }): Promise<HodAccount[]> {
+  const params = new URLSearchParams();
+  if (filters?.institutionId) params.set("institutionId", filters.institutionId);
+  if (filters?.departmentId) params.set("departmentId", filters.departmentId);
+  const query = params.toString();
+  return apiGet<HodAccount[]>(query ? `/api/dean/hod?${query}` : "/api/dean/hod");
 }
 
 export function createHodAccount(
-  data: Pick<HodAccount, "firstName" | "lastName" | "email" | "departmentId" | "status">
+  data: Pick<HodAccount, "firstName" | "lastName" | "email" | "institutionId" | "departmentId" | "status" | "password">
 ): Promise<HodAccount> {
-  const now = new Date().toISOString();
-  const account: HodAccount = {
-    ...data,
-    id: `user-hod-${Date.now()}`,
-    role: "HOD",
-    createdAt: now,
-    updatedAt: now,
-  };
-  mockHodAccounts.push(account);
-  const dept = mockDepartments.find((d) => d.id === account.departmentId);
-  if (dept) {
-    dept.hodId = account.id;
-  }
-  return Promise.resolve(account);
+  return apiSend<HodAccount>("/api/dean/hod", "POST", data);
 }
 
 export function updateHodAccount(id: string, data: Partial<HodAccount>): Promise<HodAccount> {
-  const index = mockHodAccounts.findIndex((h) => h.id === id);
-  if (index === -1) {
-    return Promise.reject(new Error("HOD not found"));
-  }
-  const previousDepartmentId = mockHodAccounts[index].departmentId;
-  mockHodAccounts[index] = { ...mockHodAccounts[index], ...data, updatedAt: new Date().toISOString() };
-  const newDepartmentId = mockHodAccounts[index].departmentId;
-
-  if (previousDepartmentId !== newDepartmentId) {
-    if (previousDepartmentId) {
-      const prevDept = mockDepartments.find((d) => d.id === previousDepartmentId);
-      if (prevDept && prevDept.hodId === id) {
-        prevDept.hodId = undefined;
-      }
-    }
-    if (newDepartmentId) {
-      const newDept = mockDepartments.find((d) => d.id === newDepartmentId);
-      if (newDept) {
-        newDept.hodId = id;
-      }
-    }
-  }
-
-  return Promise.resolve(mockHodAccounts[index]);
+  return apiSend<HodAccount>(`/api/dean/hod/${id}`, "PATCH", data);
 }
 
 export function deactivateHodAccount(id: string): Promise<HodAccount> {
@@ -105,31 +65,17 @@ export function getFaculty(departmentId?: string): Promise<Faculty[]> {
 }
 
 export function getStudents(departmentId?: string): Promise<Student[]> {
-  if (!departmentId) {
-    return Promise.resolve(mockStudents);
-  }
-  return Promise.resolve(mockStudents.filter((s) => s.user?.departmentId === departmentId));
-}
-
-function hydrateAllocation(a: StudentAllocation): StudentAllocation {
-  return {
-    ...a,
-    faculty: a.faculty ?? mockFaculty.find((f) => f.id === a.facultyId),
-    student: a.student ?? mockStudents.find((s) => s.id === a.studentId),
-    subject: a.subject ?? mockSubjects.find((s) => s.id === a.subjectId),
-  };
+  const url = departmentId
+    ? `/api/dean/students?departmentId=${encodeURIComponent(departmentId)}`
+    : "/api/dean/students";
+  return apiGet<Student[]>(url);
 }
 
 export function getStudentAllocations(departmentId?: string): Promise<StudentAllocation[]> {
-  if (!departmentId) {
-    return Promise.resolve(mockStudentAllocations.map(hydrateAllocation));
-  }
-  const deptFacultyIds = new Set(
-    mockFaculty.filter((f) => f.departmentId === departmentId).map((f) => f.id)
-  );
-  return Promise.resolve(
-    mockStudentAllocations.filter((a) => deptFacultyIds.has(a.facultyId)).map(hydrateAllocation)
-  );
+  const url = departmentId
+    ? `/api/dean/student-allocations?departmentId=${encodeURIComponent(departmentId)}`
+    : "/api/dean/student-allocations";
+  return apiGet<StudentAllocation[]>(url);
 }
 
 export function getCompetencyAssignments(departmentId?: string): Promise<CompetencyAssignment[]> {
@@ -150,44 +96,36 @@ export async function getFacultyById(id: string): Promise<Faculty | undefined> {
   return res.json();
 }
 
-export function getStudentById(id: string): Promise<Student | undefined> {
-  return Promise.resolve(mockStudents.find((s) => s.id === id));
+export async function getStudentById(id: string): Promise<Student | undefined> {
+  const res = await fetch(`/api/dean/students/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load student ${id}`);
+  return res.json();
 }
 
-export function getStudentAllocationById(id: string): Promise<StudentAllocation | undefined> {
-  const found = mockStudentAllocations.find((a) => a.id === id);
-  return Promise.resolve(found ? hydrateAllocation(found) : undefined);
+export async function getStudentAllocationById(id: string): Promise<StudentAllocation | undefined> {
+  const res = await fetch(`/api/dean/student-allocations/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load allocation ${id}`);
+  return res.json();
 }
 
 export function getAllocationHistory(departmentId?: string): Promise<StudentAllocation[]> {
-  const history = [
-    ...mockStudentAllocations,
-    ...mockStudentAllocations.slice(0, 2).map((a, i) => ({
-      ...a,
-      id: `${a.id}-hist-${i + 1}`,
-      facultyId: i === 0 ? "fac-2" : "fac-3",
-      faculty: i === 0 ? mockFaculty[1] : mockFaculty[2],
-      active: false,
-      allocatedDate: "2024-05-15T00:00:00Z",
-    })),
-  ].map(hydrateAllocation);
-  if (!departmentId) {
-    return Promise.resolve(history);
-  }
-  const deptFacultyIds = new Set(
-    mockFaculty.filter((f) => f.departmentId === departmentId).map((f) => f.id)
-  );
-  return Promise.resolve(history.filter((a) => deptFacultyIds.has(a.facultyId)));
+  return getStudentAllocations(departmentId);
 }
 
-export function getCompetencyAssignmentById(id: string): Promise<CompetencyAssignment | undefined> {
-  return Promise.resolve(mockCompetencyAssignments.find((a) => a.id === id));
+export async function getCompetencyAssignmentById(id: string): Promise<CompetencyAssignment | undefined> {
+  const res = await fetch(`/api/dean/competency-assignments/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load competency assignment ${id}`);
+  return res.json();
 }
 
 export interface FacultyWriteData {
   firstName: string;
   lastName: string;
   email: string;
+  password: string;
   departmentId: string;
   designation: string;
   employeeCode: string;
@@ -207,55 +145,41 @@ export function deactivateFaculty(id: string): Promise<Faculty> {
   return apiSend<Faculty>(`/api/dean/faculty/${id}`, "PATCH", { status: "INACTIVE" });
 }
 
-export function createStudent(data: Omit<Student, "id">): Promise<Student> {
-  const newStudent: Student = {
-    ...data,
-    id: `stu-${Date.now()}`,
+function flattenStudent(data: Partial<Student>, password?: string) {
+  return {
+    rollNumber: data.rollNumber,
+    registrationNumber: data.registrationNumber,
+    streamId: data.streamId,
+    professionalYearId: data.professionalYearId,
+    batch: data.batch,
+    admissionYear: data.admissionYear,
+    firstName: data.user?.firstName,
+    lastName: data.user?.lastName,
+    email: data.user?.email,
+    password,
+    departmentId: data.user?.departmentId,
+    status: data.user?.status,
   };
-  mockStudents.push(newStudent);
-  return Promise.resolve(newStudent);
 }
 
-export function updateStudent(id: string, data: Partial<Student>): Promise<Student> {
-  const index = mockStudents.findIndex((s) => s.id === id);
-  if (index === -1) {
-    return Promise.reject(new Error("Student not found"));
-  }
-  mockStudents[index] = { ...mockStudents[index], ...data };
-  return Promise.resolve(mockStudents[index]);
+export function createStudent(data: Omit<Student, "id">, password: string): Promise<Student> {
+  return apiSend<Student>("/api/dean/students", "POST", flattenStudent(data, password));
 }
 
-export function deleteStudent(id: string): Promise<void> {
-  const index = mockStudents.findIndex((s) => s.id === id);
-  if (index === -1) {
-    return Promise.reject(new Error("Student not found"));
-  }
-  mockStudents.splice(index, 1);
-  return Promise.resolve();
+export function updateStudent(id: string, data: Partial<Student>, password?: string): Promise<Student> {
+  return apiSend<Student>(`/api/dean/students/${id}`, "PATCH", flattenStudent(data, password));
+}
+
+export async function deleteStudent(id: string): Promise<void> {
+  await apiSend<{ ok: boolean }>(`/api/dean/students/${id}`, "DELETE");
 }
 
 export function allocateStudent(data: Omit<StudentAllocation, "id" | "allocatedBy" | "allocatedDate">): Promise<StudentAllocation> {
-  const newAllocation: StudentAllocation = hydrateAllocation({
-    ...data,
-    id: `alloc-${Date.now()}`,
-    allocatedBy: "user-hod-1",
-    allocatedDate: new Date().toISOString(),
-  });
-  mockStudentAllocations.push(newAllocation);
-  return Promise.resolve(newAllocation);
+  return apiSend<StudentAllocation>("/api/dean/student-allocations", "POST", data);
 }
 
 export function reassignStudentAllocation(id: string, newFacultyId: string): Promise<StudentAllocation> {
-  const index = mockStudentAllocations.findIndex((a) => a.id === id);
-  if (index === -1) {
-    return Promise.reject(new Error("Allocation not found"));
-  }
-  mockStudentAllocations[index] = hydrateAllocation({
-    ...mockStudentAllocations[index],
-    facultyId: newFacultyId,
-    faculty: mockFaculty.find((f) => f.id === newFacultyId),
-  });
-  return Promise.resolve(mockStudentAllocations[index]);
+  return apiSend<StudentAllocation>(`/api/dean/student-allocations/${id}`, "PATCH", { facultyId: newFacultyId });
 }
 
 export function assignCompetency(data: Omit<CompetencyAssignment, "id" | "assignedBy" | "assignedDate">): Promise<CompetencyAssignment> {
@@ -281,13 +205,9 @@ export function getDepartmentProgress(departmentId?: string): Promise<{ subject:
   );
 }
 
-export function getDepartmentWiseProgress(institutionId?: string): Promise<{ department: string; completed: number; total: number }[]> {
-  const departments = institutionId
-    ? mockDepartments.filter((d) => d.institutionId === institutionId)
-    : mockDepartments;
-
+export function getDepartmentWiseProgress(): Promise<{ department: string; completed: number; total: number }[]> {
   return Promise.resolve(
-    departments.map((d) => {
+    legacyMockDepartments.map((d) => {
       const subjects = mockSubjects.filter((s) => s.departmentId === d.id);
       const totals = subjects.reduce(
         (acc, s) => {

@@ -42,12 +42,7 @@ const navigation = [
     children: [
       { title: "Institutions", href: "/super-admin/institutions", roles: ["Super Admin"] },
       { title: "Departments", href: "/super-admin/departments", roles: ["Super Admin"] },
-      { title: "Competency Import", href: "/super-admin/competency-import", roles: ["Super Admin"] },
-      { title: "Platform Monitoring", href: "/super-admin/monitoring", roles: ["Super Admin"] },
-      { title: "LMS Integration", href: "/integrations/lms", roles: ["Super Admin"] },
-      { title: "Billing & Subscriptions", href: "/billing", roles: ["Super Admin"] },
-      { title: "Institutional Branding", href: "/super-admin/branding", roles: ["Super Admin"] },
-      { title: "System Settings", href: "/super-admin/system-settings", roles: ["Super Admin"] },
+      { title: "Deans", href: "/super-admin/deans", roles: ["Super Admin"] },
     ],
   },
   {
@@ -121,14 +116,10 @@ const navigation = [
     ],
   },
   {
-    title: "Dean Management",
-    href: "/dean/faculty-assignment",
+    title: "Competency Assignment",
+    href: "/dean/competency-assignment",
     icon: UserCheck,
     roles: ["Dean", "HOD"],
-    children: [
-      { title: "Faculty Assignment", href: "/dean/faculty-assignment", roles: ["Dean", "HOD"] },
-      { title: "Competency Assignment", href: "/dean/competency-assignment", roles: ["Dean", "HOD"] },
-    ],
   },
   {
     title: "Notifications",

@@ -16,7 +16,6 @@ const navigation = [
   { href: "/dean/students", label: "Students", icon: UserPlus },
   { href: "/dean/students/import", label: "Student Import", icon: FileSpreadsheet },
   { href: "/dean/allocations", label: "Student Allocation", icon: Link2 },
-  { href: "/dean/faculty-assignment", label: "Faculty Assignment", icon: Award },
   { href: "/dean/competency-assignment", label: "Competency Assignment", icon: Award },
 ];
 

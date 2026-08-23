@@ -5,54 +5,77 @@ import type {
   AssessmentAttempt,
   AssessmentStatus,
 } from "@/types";
-import {
-  mockStudent,
-  mockMyCompetencies,
-  mockAssessments,
-  mockAssessmentAttempts,
-} from "@/features/student/mock/student";
+
+async function apiGet<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to load ${url}`);
+  }
+  return res.json();
+}
+
+async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.message ?? `Failed to save (${url})`);
+  }
+  return res.json();
+}
 
 export function getStudent(): Promise<Student> {
-  return Promise.resolve(mockStudent);
+  return apiGet<Student>("/api/student/me");
 }
 
-export function getMyCompetencies(): Promise<CompetencyAssignment[]> {
-  return Promise.resolve(mockMyCompetencies);
+export async function getMyCompetencies(): Promise<CompetencyAssignment[]> {
+  const student = await getStudent();
+  return apiGet<CompetencyAssignment[]>(
+    `/api/dean/competency-assignments?batch=${encodeURIComponent(student.batch)}`
+  );
 }
 
-export function getMyAssessments(): Promise<Assessment[]> {
-  return Promise.resolve(mockAssessments);
+export async function getMyAssessments(): Promise<Assessment[]> {
+  const student = await getStudent();
+  return apiGet<Assessment[]>(`/api/assessments?studentId=${encodeURIComponent(student.id)}`);
 }
 
-export function getMyAssessmentAttempts(): Promise<AssessmentAttempt[]> {
-  return Promise.resolve(mockAssessmentAttempts);
+export async function getMyAssessmentAttempts(): Promise<AssessmentAttempt[]> {
+  const student = await getStudent();
+  return apiGet<AssessmentAttempt[]>(`/api/assessment-attempts?studentId=${encodeURIComponent(student.id)}`);
 }
 
-export function getCompetencyAssignmentById(id: string): Promise<CompetencyAssignment | undefined> {
-  return Promise.resolve(mockMyCompetencies.find((a) => a.id === id));
+export async function getCompetencyAssignmentById(id: string): Promise<CompetencyAssignment | undefined> {
+  const res = await fetch(`/api/dean/competency-assignments/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load competency assignment ${id}`);
+  return res.json();
 }
 
-export function getAssessmentById(id: string): Promise<Assessment | undefined> {
-  return Promise.resolve(mockAssessments.find((a) => a.id === id));
+export async function getAssessmentById(id: string): Promise<Assessment | undefined> {
+  const res = await fetch(`/api/assessments/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load assessment ${id}`);
+  return res.json();
+}
+
+export async function getOrCreateMyAssessment(competencyAssignmentId: string): Promise<Assessment> {
+  const student = await getStudent();
+  return apiSend<Assessment>("/api/assessments", "POST", {
+    studentId: student.id,
+    competencyAssignmentId,
+  });
 }
 
 export function getAssessmentAttemptsByAssessmentId(assessmentId: string): Promise<AssessmentAttempt[]> {
-  return Promise.resolve(mockAssessmentAttempts.filter((a) => a.assessmentId === assessmentId));
+  return apiGet<AssessmentAttempt[]>(`/api/assessment-attempts?assessmentId=${encodeURIComponent(assessmentId)}`);
 }
 
 export function acknowledgeAssessment(assessmentId: string, signature: string): Promise<AssessmentAttempt> {
-  const index = mockAssessmentAttempts.findIndex((a) => a.assessmentId === assessmentId);
-  if (index === -1) {
-    return Promise.reject(new Error("Assessment attempt not found"));
-  }
-  mockAssessmentAttempts[index] = {
-    ...mockAssessmentAttempts[index],
-    studentAcknowledged: true,
-    studentSignature: signature,
-    studentSignedAt: new Date().toISOString(),
-    status: "Completed",
-  };
-  return Promise.resolve(mockAssessmentAttempts[index]);
+  return apiSend<AssessmentAttempt>(`/api/assessments/${assessmentId}/acknowledge`, "POST", { signature });
 }
 
 export async function acknowledgeAssessments(
@@ -99,11 +122,7 @@ export function hasViewedFeedback(assessmentId: string): boolean {
 }
 
 export function getProgress(): Promise<{ subject: string; completed: number; total: number }[]> {
-  return Promise.resolve([
-    { subject: "Anatomy", completed: 8, total: 10 },
-    { subject: "Physiology", completed: 3, total: 8 },
-    { subject: "Biochemistry", completed: 2, total: 7 },
-  ]);
+  return apiGet<{ subject: string; completed: number; total: number }[]>("/api/student/progress");
 }
 
 interface StudentResponseAnswer {
@@ -116,6 +135,8 @@ export interface SubmitStudentResponsePayload {
   answers: StudentResponseAnswer[];
 }
 
+// No table exists yet for student answers to question templates — kept as an
+// in-memory store until that's added to the schema.
 const mockStudentResponses = new Map<string, SubmitStudentResponsePayload>();
 
 export function getStudentResponse(
@@ -131,18 +152,12 @@ export function saveStudentResponse(
   return Promise.resolve(payload);
 }
 
-export function submitStudentResponse(
+export async function submitStudentResponse(
   assessmentId: string,
   payload: SubmitStudentResponsePayload
 ): Promise<Assessment> {
   mockStudentResponses.set(payload.questionTemplateId, payload);
-  const index = mockAssessments.findIndex((a) => a.id === assessmentId);
-  if (index === -1) {
-    return Promise.reject(new Error("Assessment not found"));
-  }
-  mockAssessments[index] = {
-    ...mockAssessments[index],
-    currentStatus: "Submitted" as AssessmentStatus,
-  };
-  return Promise.resolve(mockAssessments[index]);
+  return apiSend<Assessment>(`/api/assessments/${assessmentId}`, "PATCH", {
+    currentStatus: "Submitted" satisfies AssessmentStatus,
+  });
 }

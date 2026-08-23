@@ -4,10 +4,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { AsyncContent } from "@/components/shared/AsyncContent";
-import {
-  getInstitutionById,
-  getDepartmentsByInstitutionId,
-} from "@/features/super-admin/services/superAdmin";
+import { getInstitutionById } from "@/features/super-admin/services/superAdmin";
+import { getHodAccounts, getDepartments } from "@/features/dean/services/dean";
 import { PageLoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -33,24 +31,25 @@ export default function InstitutionDetailPage() {
   const [institution, setInstitution] = useState<Awaited<
     ReturnType<typeof getInstitutionById>
   >>(undefined);
-  const [departments, setDepartments] = useState<Awaited<
-    ReturnType<typeof getDepartmentsByInstitutionId>
-  >>([]);
+  const [hods, setHods] = useState<Awaited<ReturnType<typeof getHodAccounts>>>([]);
+  const [departments, setDepartments] = useState<Awaited<ReturnType<typeof getDepartments>>>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     setNotFound(false);
     try {
-      const [inst, depts] = await Promise.all([
+      const [inst, hodAccounts, depts] = await Promise.all([
         getInstitutionById(params.id),
-        getDepartmentsByInstitutionId(params.id),
+        getHodAccounts({ institutionId: params.id }),
+        getDepartments(),
       ]);
       if (!inst) {
         setNotFound(true);
         return;
       }
       setInstitution(inst);
+      setHods(hodAccounts);
       setDepartments(depts);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load institution"));
@@ -113,13 +112,13 @@ export default function InstitutionDetailPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Departments</CardTitle>
+            <CardTitle className="text-sm font-medium">HODs</CardTitle>
             <Building2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{departments.length}</p>
+            <p className="text-2xl font-bold">{hods.length}</p>
             <p className="text-xs text-muted-foreground">
-              {departments.filter((d) => d.status === "ACTIVE").length} active
+              {hods.filter((h) => h.status === "ACTIVE").length} active
             </p>
           </CardContent>
         </Card>
@@ -182,23 +181,23 @@ export default function InstitutionDetailPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Departments</CardTitle>
+            <CardTitle>HODs at this Institution</CardTitle>
           </CardHeader>
           <CardContent>
             <AsyncContent
-              data={departments}
+              data={hods}
               isLoading={false}
               error={null}
-              emptyTitle="No departments"
-              emptyDescription="No departments have been added to this institution."
+              emptyTitle="No HODs"
+              emptyDescription="No heads of department have been assigned at this institution yet."
               loadingColumns={2}
             >
               {(items) => (
                 <div className="space-y-2">
-                  {items.map((d) => (
+                  {items.map((h) => (
                     <Link
-                      key={d.id}
-                      href={`/super-admin/departments/${d.id}`}
+                      key={h.id}
+                      href={`/super-admin/departments/${h.departmentId}`}
                       className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-accent transition-colors"
                     >
                       <div className="flex items-center gap-3">
@@ -206,16 +205,16 @@ export default function InstitutionDetailPage() {
                           <Users className="h-4 w-4 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium">{d.name}</p>
+                          <p className="font-medium">{h.firstName} {h.lastName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {d.description ?? "No description"}
+                            {departments.find((d) => d.id === h.departmentId)?.name ?? "No department"}
                           </p>
                         </div>
                       </div>
                       <StatusBadge
-                        variant={d.status === "ACTIVE" ? "success" : "gray"}
+                        variant={h.status === "ACTIVE" ? "success" : "gray"}
                       >
-                        {d.status ?? "ACTIVE"}
+                        {h.status ?? "ACTIVE"}
                       </StatusBadge>
                     </Link>
                   ))}

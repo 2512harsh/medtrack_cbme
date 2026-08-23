@@ -36,6 +36,10 @@ export async function getProfessionalYears(streamId?: string) {
   return apiGet<ProfessionalYear[]>(url);
 }
 
+export async function createProfessionalYear(data: { streamId: string; name: string }) {
+  return apiSend<ProfessionalYear>("/api/curriculum/professional-years", "POST", data);
+}
+
 export async function getCurriculumDepartments() {
   return apiGet<Department[]>("/api/curriculum/departments");
 }

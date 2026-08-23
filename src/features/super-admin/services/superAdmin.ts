@@ -1,54 +1,51 @@
 import type { Institution, Department, UserSummary } from "@/types";
 import {
-  mockInstitutions,
-  mockDepartments,
-  mockDeanAccounts,
   mockHodAccounts,
   mockPlatformMetrics,
   mockRecentActivity,
-  mockSystemSettings,
-  mockCompetencyImportRecords,
   DeanAccount,
   HodAccount,
 } from "../mock/superAdmin";
+import { getHodAccounts as getRealHodAccounts } from "@/features/dean/services/dean";
+
+async function apiGet<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to load ${url}`);
+  }
+  return res.json();
+}
+
+async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.message ?? `Failed to save (${url})`);
+  }
+  return res.json();
+}
 
 export function getInstitutions(): Promise<Institution[]> {
-  return Promise.resolve(mockInstitutions);
+  return apiGet<Institution[]>("/api/institutions");
 }
 
-export function getInstitutionById(id: string): Promise<Institution | undefined> {
-  return Promise.resolve(mockInstitutions.find((i) => i.id === id));
-}
-
-export function getDepartmentsByInstitutionId(institutionId: string): Promise<Department[]> {
-  return Promise.resolve(mockDepartments.filter((d) => d.institutionId === institutionId));
+export async function getInstitutionById(id: string): Promise<Institution | undefined> {
+  const institutions = await getInstitutions();
+  return institutions.find((i) => i.id === id);
 }
 
 export function createInstitution(
   data: Omit<Institution, "id" | "createdAt" | "updatedAt">
 ): Promise<Institution> {
-  const now = new Date().toISOString();
-  const institution: Institution = {
-    ...data,
-    id: `inst-${Date.now()}`,
-    createdAt: now,
-    updatedAt: now,
-  };
-  mockInstitutions.unshift(institution);
-  return Promise.resolve(institution);
+  return apiSend<Institution>("/api/institutions", "POST", data);
 }
 
 export function updateInstitution(id: string, data: Partial<Institution>): Promise<Institution> {
-  const index = mockInstitutions.findIndex((i) => i.id === id);
-  if (index === -1) {
-    return Promise.reject(new Error("Institution not found"));
-  }
-  mockInstitutions[index] = {
-    ...mockInstitutions[index],
-    ...data,
-    updatedAt: new Date().toISOString(),
-  };
-  return Promise.resolve(mockInstitutions[index]);
+  return apiSend<Institution>(`/api/institutions/${id}`, "PATCH", data);
 }
 
 export function setInstitutionStatus(id: string, status: "ACTIVE" | "INACTIVE"): Promise<Institution> {
@@ -56,68 +53,49 @@ export function setInstitutionStatus(id: string, status: "ACTIVE" | "INACTIVE"):
 }
 
 export function getDepartments(): Promise<Department[]> {
-  return Promise.resolve(mockDepartments);
+  return apiGet<Department[]>("/api/curriculum/departments");
 }
 
-export function getDepartmentById(id: string): Promise<Department | undefined> {
-  return Promise.resolve(mockDepartments.find((d) => d.id === id));
-}
-
-export function getDepartmentsByInstitution(institutionId: string): Promise<Department[]> {
-  return Promise.resolve(mockDepartments.filter((d) => d.institutionId === institutionId));
+export async function getDepartmentById(id: string): Promise<Department | undefined> {
+  const res = await fetch(`/api/curriculum/departments/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load department ${id}`);
+  return res.json();
 }
 
 export function createDepartment(
   data: Omit<Department, "id" | "createdAt" | "updatedAt">
 ): Promise<Department> {
-  const now = new Date().toISOString();
-  const department: Department = {
-    ...data,
-    id: `dept-${Date.now()}`,
-    createdAt: now,
-    updatedAt: now,
-  };
-  mockDepartments.push(department);
-  return Promise.resolve(department);
+  return apiSend<Department>("/api/curriculum/departments", "POST", data);
 }
 
 export function updateDepartment(id: string, data: Partial<Department>): Promise<Department> {
-  const index = mockDepartments.findIndex((d) => d.id === id);
-  if (index === -1) {
-    return Promise.reject(new Error("Department not found"));
-  }
-  mockDepartments[index] = {
-    ...mockDepartments[index],
-    ...data,
-    updatedAt: new Date().toISOString(),
-  };
-  return Promise.resolve(mockDepartments[index]);
+  return apiSend<Department>(`/api/curriculum/departments/${id}`, "PATCH", data);
 }
 
 export function setDepartmentStatus(id: string, status: "ACTIVE" | "INACTIVE"): Promise<Department> {
   return updateDepartment(id, { status });
 }
 
-export function getDeanAccounts(): Promise<DeanAccount[]> {
-  return Promise.resolve(mockDeanAccounts);
+export function getDeanAccounts(institutionId?: string): Promise<DeanAccount[]> {
+  const url = institutionId
+    ? `/api/super-admin/deans?institutionId=${encodeURIComponent(institutionId)}`
+    : "/api/super-admin/deans";
+  return apiGet<DeanAccount[]>(url);
 }
 
 export function createDeanAccount(
-  data: Pick<UserSummary, "firstName" | "lastName" | "email" | "departmentId"> & {
-    password: string;
-  }
+  data: Pick<DeanAccount, "firstName" | "lastName" | "email" | "institutionId" | "status" | "password">
 ): Promise<DeanAccount> {
-  const now = new Date().toISOString();
-  const account: DeanAccount = {
-    ...data,
-    id: `user-dean-${Date.now()}`,
-    role: "Dean",
-    status: "ACTIVE",
-    createdAt: now,
-    updatedAt: now,
-  };
-  mockDeanAccounts.push(account);
-  return Promise.resolve(account);
+  return apiSend<DeanAccount>("/api/super-admin/deans", "POST", data);
+}
+
+export function updateDeanAccount(id: string, data: Partial<DeanAccount>): Promise<DeanAccount> {
+  return apiSend<DeanAccount>(`/api/super-admin/deans/${id}`, "PATCH", data);
+}
+
+export function deactivateDeanAccount(id: string): Promise<DeanAccount> {
+  return updateDeanAccount(id, { status: "INACTIVE" });
 }
 
 export function getHodAccounts(): Promise<HodAccount[]> {
@@ -142,7 +120,7 @@ export function createHodAccount(
   return Promise.resolve(account);
 }
 
-export function getDashboardStats(): Promise<{
+export async function getDashboardStats(): Promise<{
   totalInstitutions: number;
   totalDepartments: number;
   activeDeans: number;
@@ -151,59 +129,21 @@ export function getDashboardStats(): Promise<{
   institutions: Institution[];
   recentActivity: typeof mockRecentActivity;
 }> {
-  return Promise.resolve({
-    totalInstitutions: mockInstitutions.length,
-    totalDepartments: mockDepartments.length,
-    activeDeans: mockDeanAccounts.filter((a) => a.status === "ACTIVE").length,
-    activeHods: mockHodAccounts.filter((a) => a.status === "ACTIVE").length,
+  const [institutions, departments, deans, hods] = await Promise.all([
+    getInstitutions(),
+    getDepartments(),
+    getDeanAccounts(),
+    getRealHodAccounts(),
+  ]);
+  return {
+    totalInstitutions: institutions.length,
+    totalDepartments: departments.length,
+    activeDeans: deans.filter((a) => a.status === "ACTIVE").length,
+    activeHods: hods.filter((a) => a.status === "ACTIVE").length,
     platformHealth: mockPlatformMetrics.uptime,
-    institutions: mockInstitutions,
+    institutions,
     recentActivity: mockRecentActivity,
-  });
-}
-
-export function getPlatformMetrics(): Promise<typeof mockPlatformMetrics> {
-  return Promise.resolve(mockPlatformMetrics);
-}
-
-export function getRecentActivity(): Promise<typeof mockRecentActivity> {
-  return Promise.resolve(mockRecentActivity);
-}
-
-export function getSystemSettings(): Promise<typeof mockSystemSettings> {
-  return Promise.resolve(mockSystemSettings);
-}
-
-export function updateSystemSettings(
-  data: Partial<typeof mockSystemSettings>
-): Promise<typeof mockSystemSettings> {
-  Object.assign(mockSystemSettings, data);
-  return Promise.resolve(mockSystemSettings);
-}
-
-export function getCompetencyImportRecords(): Promise<typeof mockCompetencyImportRecords> {
-  return Promise.resolve(mockCompetencyImportRecords);
-}
-
-export function createCompetencyImport(data: {
-  fileName: string;
-  importedBy: string;
-}): Promise<typeof mockCompetencyImportRecords[number]> {
-  const now = new Date().toISOString();
-  const record = {
-    id: `imp-${Date.now()}`,
-    fileName: data.fileName,
-    source: "Institution Custom",
-    type: "Professional Year",
-    totalRecords: 0,
-    imported: 0,
-    duplicates: 0,
-    failed: 0,
-    importedBy: data.importedBy,
-    importedAt: now,
   };
-  mockCompetencyImportRecords.unshift(record);
-  return Promise.resolve(record);
 }
 
 export type { DeanAccount, HodAccount };

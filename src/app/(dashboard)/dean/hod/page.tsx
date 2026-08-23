@@ -6,22 +6,21 @@ import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import {
-  getDepartmentById,
   getDepartments,
   getHodAccounts,
   createHodAccount,
   updateHodAccount,
   deactivateHodAccount,
 } from "@/features/dean/services/dean";
+import { getInstitutions } from "@/features/super-admin/services/superAdmin";
 import {
   HodFormDialog,
   type HodFormValues,
 } from "@/features/dean/components/HodFormDialog";
-import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { toast } from "sonner";
-import type { Department } from "@/types";
+import type { Department, Institution } from "@/types";
 import type { HodAccount } from "@/features/super-admin/mock/superAdmin";
 import { ColumnDef } from "@tanstack/react-table";
 
@@ -29,16 +28,16 @@ type HodRow = {
   id: string;
   name: string;
   email: string;
+  institution: string;
   department: string;
   status: string;
 };
 
 export default function HodManagementPage() {
-  const { user } = useAuth();
-  const departmentId = user?.departmentId;
   const [data, setData] = useState<HodRow[] | undefined>(undefined);
   const [hodList, setHodList] = useState<HodAccount[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -48,11 +47,12 @@ export default function HodManagementPage() {
   const [selectedHod, setSelectedHod] = useState<HodRow | null>(null);
   const [isDeactivating, setIsDeactivating] = useState(false);
 
-  const toRows = (hods: HodAccount[], depts: Department[]): HodRow[] =>
+  const toRows = (hods: HodAccount[], depts: Department[], insts: Institution[]): HodRow[] =>
     hods.map((h) => ({
       id: h.id,
       name: `${h.firstName} ${h.lastName}`,
       email: h.email,
+      institution: insts.find((i) => i.id === h.institutionId)?.name ?? "Unassigned",
       department: depts.find((d) => d.id === h.departmentId)?.name ?? "Unassigned",
       status: h.status,
     }));
@@ -61,17 +61,15 @@ export default function HodManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const department = departmentId ? await getDepartmentById(departmentId) : undefined;
-      const [hods, allDepartments] = await Promise.all([
-        getHodAccounts(department?.institutionId),
+      const [hods, allDepartments, allInstitutions] = await Promise.all([
+        getHodAccounts(),
         getDepartments(),
+        getInstitutions(),
       ]);
-      const institutionDepartments = department
-        ? allDepartments.filter((d) => d.institutionId === department.institutionId)
-        : allDepartments;
       setHodList(hods);
-      setDepartments(institutionDepartments);
-      setData(toRows(hods, institutionDepartments));
+      setDepartments(allDepartments);
+      setInstitutions(allInstitutions);
+      setData(toRows(hods, allDepartments, allInstitutions));
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load HOD accounts"));
     } finally {
@@ -82,13 +80,12 @@ export default function HodManagementPage() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [departmentId]);
+  }, []);
 
   const refreshList = async () => {
-    const department = departmentId ? await getDepartmentById(departmentId) : undefined;
-    const hods = await getHodAccounts(department?.institutionId);
+    const hods = await getHodAccounts();
     setHodList(hods);
-    setData(toRows(hods, departments));
+    setData(toRows(hods, departments, institutions));
   };
 
   const openCreate = () => {
@@ -146,6 +143,7 @@ export default function HodManagementPage() {
   const columns: ColumnDef<AppTableFeatures, HodRow>[] = [
     { accessorKey: "name", header: "Name" },
     { accessorKey: "email", header: "Email" },
+    { accessorKey: "institution", header: "Institution" },
     { accessorKey: "department", header: "Department" },
     {
       accessorKey: "status",
@@ -218,6 +216,7 @@ export default function HodManagementPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         hod={editingHod}
+        institutions={institutions}
         departments={departments}
         isSaving={isSaving}
         onSave={handleSave}

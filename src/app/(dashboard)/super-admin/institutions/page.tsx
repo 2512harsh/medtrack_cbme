@@ -321,7 +321,7 @@ export default function InstitutionsPage() {
           }
           description={
             deactivateTarget.status === "ACTIVE"
-              ? `Deactivate ${deactivateTarget.name}? Departments and users under this institution will be affected.`
+              ? `Deactivate ${deactivateTarget.name}? Deans, HODs, faculty, and students at this institution will be affected.`
               : `Activate ${deactivateTarget.name}?`
           }
           confirmLabel={

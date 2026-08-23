@@ -245,7 +245,7 @@ export function CompetencyAssignmentDialog({
               onValueChange={(v) => setFacultyId(v ?? "")}
               disabled={isSaving}
             >
-              <SelectTrigger id="faculty">
+              <SelectTrigger id="faculty" className="w-full">
                 <SelectValue placeholder="Select a faculty member" />
               </SelectTrigger>
               <SelectContent>
@@ -266,7 +266,7 @@ export function CompetencyAssignmentDialog({
               onValueChange={(v) => setSubjectId(v ?? "")}
               disabled={isSaving}
             >
-              <SelectTrigger id="subject">
+              <SelectTrigger id="subject" className="w-full">
                 <SelectValue placeholder="Select a subject" />
               </SelectTrigger>
               <SelectContent>
@@ -287,7 +287,7 @@ export function CompetencyAssignmentDialog({
               onValueChange={(v) => setTopicId(v ?? "")}
               disabled={isSaving || !subjectId}
             >
-              <SelectTrigger id="topic">
+              <SelectTrigger id="topic" className="w-full">
                 <SelectValue placeholder={subjectId ? "Select a topic" : "Select a subject first"} />
               </SelectTrigger>
               <SelectContent>
@@ -308,7 +308,7 @@ export function CompetencyAssignmentDialog({
               onValueChange={(v) => setSubtopicId(v ?? "")}
               disabled={isSaving || !topicId}
             >
-              <SelectTrigger id="subtopic">
+              <SelectTrigger id="subtopic" className="w-full">
                 <SelectValue placeholder={topicId ? "Select a subtopic" : "Select a topic first"} />
               </SelectTrigger>
               <SelectContent>
@@ -329,10 +329,19 @@ export function CompetencyAssignmentDialog({
               onValueChange={(v) => setCompetencyId(v ?? "")}
               disabled={isSaving || !subtopicId}
             >
-              <SelectTrigger id="competency">
-                <SelectValue placeholder={subtopicId ? "Select a competency" : "Select a subtopic first"} />
+              <SelectTrigger
+                id="competency"
+                className="w-full"
+                title={competencies.find((c) => c.id === competencyId)
+                  ? `${competencies.find((c) => c.id === competencyId)?.competencyCode} — ${competencies.find((c) => c.id === competencyId)?.competencyTitle}`
+                  : undefined}
+              >
+                <SelectValue
+                  className="truncate"
+                  placeholder={subtopicId ? "Select a competency" : "Select a subtopic first"}
+                />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-w-md">
                 {competencies.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.competencyCode} — {c.competencyTitle}

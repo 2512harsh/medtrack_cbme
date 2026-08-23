@@ -21,6 +21,7 @@ export interface StudentFormValues {
   firstName: string;
   lastName: string;
   email: string;
+  password: string;
   rollNumber: string;
   registrationNumber: string;
   streamId: string;
@@ -49,6 +50,7 @@ export function StudentFormDialog({
     firstName: "",
     lastName: "",
     email: "",
+    password: "",
     rollNumber: "",
     registrationNumber: "",
     streamId: "",
@@ -75,6 +77,7 @@ export function StudentFormDialog({
         firstName: student?.user?.firstName ?? "",
         lastName: student?.user?.lastName ?? "",
         email: student?.user?.email ?? "",
+        password: "",
         rollNumber: student?.rollNumber ?? "",
         registrationNumber: student?.registrationNumber ?? "",
         streamId: student?.streamId ?? "",
@@ -96,6 +99,7 @@ export function StudentFormDialog({
       !values.firstName ||
       !values.lastName ||
       !values.email ||
+      (!student && !values.password) ||
       !values.rollNumber ||
       !values.registrationNumber ||
       !values.streamId ||
@@ -154,6 +158,19 @@ export function StudentFormDialog({
               value={values.email}
               onChange={(e) => set("email", e.target.value)}
               disabled={isSaving}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">{student ? "New Password" : "Password *"}</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder={student ? "Leave blank to keep current password" : "Set a login password"}
+              value={values.password}
+              onChange={(e) => set("password", e.target.value)}
+              disabled={isSaving}
+              autoComplete="new-password"
             />
           </div>
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { UserRole } from "@/types";
-import { mockUsers } from "@/features/authentication/mock/users";
+import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/session";
 
 // Shared, any-authenticated-role sections (role-scoping is applied in the UI).
 const SHARED_PREFIXES = [
@@ -10,8 +10,6 @@ const SHARED_PREFIXES = [
   "/reports",
   "/settings",
   "/curriculum",
-  "/integrations",
-  "/billing",
 ];
 
 // Role-scoped path prefixes. A path matching one of these is only reachable by its roles.
@@ -41,18 +39,16 @@ const LEGACY_REDIRECTS: { from: string; to: string }[] = [
   { from: "/hod", to: "/dean" },
 ];
 
-function decodeRole(token: string | undefined): UserRole | null {
-  if (!token || !token.startsWith("mock-jwt-token-")) {
-    return null;
-  }
-  const parts = token.split("-");
-  const userId = parts.length >= 5 ? `${parts[3]}-${parts[4]}` : "";
-  const user = mockUsers.find((u) => u.id === userId);
-  return user?.role ?? null;
-}
-
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // API routes handle their own auth (or are intentionally public, like
+  // /api/auth/login) — never redirect them to an HTML page. Redirecting an
+  // API call to /login would return the login page's HTML with a 200 status,
+  // which breaks every fetch() caller expecting JSON.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
 
   // Legacy /hod/* links redirect to their /dean/* equivalents.
   for (const { from, to } of LEGACY_REDIRECTS) {
@@ -62,7 +58,8 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  const role = decodeRole(request.cookies.get("medtrack_token")?.value);
+  const session = await verifySessionToken(request.cookies.get(SESSION_COOKIE_NAME)?.value);
+  const role = (session?.role as UserRole | undefined) ?? null;
 
   const loginUrl = new URL("/login", request.url);
   const dashboardUrl = new URL(role ? DASHBOARD_ROUTE[role] : "/login", request.url);

@@ -133,16 +133,6 @@ export function LoginForm() {
               </Button>
             </form>
 
-            <div className="text-center text-sm text-muted-foreground">
-              <p>Demo credentials:</p>
-              <div className="mt-2 space-y-1 text-left max-w-xs mx-auto p-3 bg-muted rounded-md text-xs font-mono">
-                <div><strong>Super Admin:</strong> superadmin@medtrack.edu / password123</div>
-                <div><strong>Dean:</strong> dean.anatomy@medtrack.edu / password123</div>
-                <div><strong>HOD:</strong> hod.anatomy@medtrack.edu / password123</div>
-                <div><strong>Faculty:</strong> faculty.physiology@medtrack.edu / password123</div>
-                <div><strong>Student:</strong> student2024001@medtrack.edu / password123</div>
-              </div>
-            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-2">
             <p className="text-center text-sm text-muted-foreground">

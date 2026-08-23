@@ -15,7 +15,6 @@ import {
   StudentFormDialog,
   type StudentFormValues,
 } from "@/features/dean/components/StudentFormDialog";
-import { useAuth } from "@/features/authentication/hooks/useAuth";
 import Link from "next/link";
 import type { Student } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
@@ -33,8 +32,8 @@ type StudentRow = {
 };
 
 export default function StudentManagementPage() {
-  const { user } = useAuth();
-  const departmentId = user?.departmentId;
+  // Not filtered by departmentId: the mock logged-in user's departmentId
+  // doesn't match real department ids now that this is DB-backed.
   const [data, setData] = useState<StudentRow[] | undefined>(undefined);
   const [studentList, setStudentList] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +58,7 @@ export default function StudentManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const students = await getStudents(departmentId);
+      const students = await getStudents();
       setStudentList(students);
       setData(rowsFrom(students));
     } catch (err) {
@@ -67,14 +66,14 @@ export default function StudentManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [departmentId]);
+  }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   const refreshList = async () => {
-    const students = await getStudents(departmentId);
+    const students = await getStudents();
     setStudentList(students);
     setData(rowsFrom(students));
   };
@@ -102,49 +101,54 @@ export default function StudentManagementPage() {
           email: "",
           role: "Student" as const,
           status: "ACTIVE" as const,
-          departmentId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        await updateStudent(editingStudent.id, {
-          rollNumber: values.rollNumber,
-          registrationNumber: values.registrationNumber,
-          streamId: values.streamId,
-          professionalYearId: values.professionalYearId,
-          batch: values.batch,
-          admissionYear: values.admissionYear,
-          user: {
-            ...user,
-            firstName: values.firstName,
-            lastName: values.lastName,
-            email: values.email,
-            status: values.status,
-            updatedAt: new Date().toISOString(),
+        await updateStudent(
+          editingStudent.id,
+          {
+            rollNumber: values.rollNumber,
+            registrationNumber: values.registrationNumber,
+            streamId: values.streamId,
+            professionalYearId: values.professionalYearId,
+            batch: values.batch,
+            admissionYear: values.admissionYear,
+            user: {
+              ...user,
+              firstName: values.firstName,
+              lastName: values.lastName,
+              email: values.email,
+              status: values.status,
+              updatedAt: new Date().toISOString(),
+            },
           },
-        });
+          values.password || undefined
+        );
         toast.success("Student updated successfully");
       } else {
         const userId = `user-stu-${Date.now()}`;
-        await createStudent({
-          userId,
-          rollNumber: values.rollNumber,
-          registrationNumber: values.registrationNumber,
-          streamId: values.streamId,
-          professionalYearId: values.professionalYearId,
-          batch: values.batch,
-          admissionYear: values.admissionYear,
-          user: {
-            id: userId,
-            firstName: values.firstName,
-            lastName: values.lastName,
-            email: values.email,
-            role: "Student",
-            status: values.status,
-            departmentId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+        await createStudent(
+          {
+            userId,
+            rollNumber: values.rollNumber,
+            registrationNumber: values.registrationNumber,
+            streamId: values.streamId,
+            professionalYearId: values.professionalYearId,
+            batch: values.batch,
+            admissionYear: values.admissionYear,
+            user: {
+              id: userId,
+              firstName: values.firstName,
+              lastName: values.lastName,
+              email: values.email,
+              role: "Student",
+              status: values.status,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
           },
-        });
+          values.password
+        );
         toast.success("Student added successfully");
       }
       setFormOpen(false);

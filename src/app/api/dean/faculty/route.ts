@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { faculty, users } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/db-errors";
+import { hashPassword } from "@/lib/password";
 
 function toFaculty(row: { faculty: typeof faculty.$inferSelect; users: typeof users.$inferSelect }) {
   return {
@@ -34,10 +36,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { firstName, lastName, email, departmentId, designation, employeeCode, specialization, status } = body as {
+  const { firstName, lastName, email, password, departmentId, designation, employeeCode, specialization, status } = body as {
     firstName: string;
     lastName: string;
     email: string;
+    password: string;
     departmentId: string;
     designation: string;
     employeeCode: string;
@@ -45,7 +48,7 @@ export async function POST(request: NextRequest) {
     status?: "ACTIVE" | "INACTIVE";
   };
 
-  if (!firstName || !lastName || !email || !departmentId || !designation || !employeeCode) {
+  if (!firstName || !lastName || !email || !password || !departmentId || !designation || !employeeCode) {
     return NextResponse.json({ message: "Missing required faculty fields" }, { status: 400 });
   }
 
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
         firstName,
         lastName,
         email,
-        passwordHash: "unset",
+        passwordHash: hashPassword(password),
         role: "Faculty",
         status: status ?? "ACTIVE",
         departmentId,
@@ -76,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(toFaculty({ faculty: facultyRow, users: user }), { status: 201 });
   } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "23505") {
+    if (isUniqueViolation(err)) {
       return NextResponse.json(
         { message: `Email "${email}" or employee code "${employeeCode}" is already in use.` },
         { status: 409 }
