@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { faculty, users } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/db-errors";
+import { hashPassword } from "@/lib/password";
 
 function toFaculty(row: { faculty: typeof faculty.$inferSelect; users: typeof users.$inferSelect }) {
   return {
@@ -37,10 +39,11 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/dean/fa
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/faculty/[id]">) {
   const { id } = await ctx.params;
   const body = await request.json();
-  const { firstName, lastName, email, departmentId, designation, employeeCode, specialization, status } = body as {
+  const { firstName, lastName, email, password, departmentId, designation, employeeCode, specialization, status } = body as {
     firstName?: string;
     lastName?: string;
     email?: string;
+    password?: string;
     departmentId?: string;
     designation?: string;
     employeeCode?: string;
@@ -68,6 +71,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/f
     if (firstName !== undefined) userUpdates.firstName = firstName;
     if (lastName !== undefined) userUpdates.lastName = lastName;
     if (email !== undefined) userUpdates.email = email;
+    if (password) userUpdates.passwordHash = hashPassword(password);
     if (departmentId !== undefined) userUpdates.departmentId = departmentId;
     if (status !== undefined) userUpdates.status = status;
 
@@ -77,7 +81,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/f
 
     return NextResponse.json(toFaculty({ faculty: facultyRow, users: userRow }));
   } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "23505") {
+    if (isUniqueViolation(err)) {
       return NextResponse.json({ message: "That email or employee code is already in use." }, { status: 409 });
     }
     throw err;

@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileUploader } from "@/components/shared/FileUploader";
-import { OptionGroup } from "@/components/shared/OptionGroup";
 import { Accordion } from "@/components/shared/Accordion";
 import { Download, Upload, Trash2, Loader2, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -44,7 +43,6 @@ export default function ExcelImportPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectId, setSubjectId] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [importMode, setImportMode] = useState<"insert" | "update" | "upsert">("upsert");
   const [stage, setStage] = useState<Stage>("idle");
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -87,7 +85,7 @@ export default function ExcelImportPage() {
     if (!parseResult) return;
     setStage("importing");
     try {
-      const result = await importCompetencies(subjectId || undefined, importMode, parseResult.rows);
+      const result = await importCompetencies(subjectId || undefined, "upsert", parseResult.rows);
       setImportResult(result);
       setStage("done");
     } catch (err) {
@@ -230,22 +228,10 @@ export default function ExcelImportPage() {
                 uploading={stage === "parsing"}
               />
 
-              <div className="space-y-1.5">
-                <Label htmlFor="import-mode">Import Mode</Label>
-                <OptionGroup
-                  value={importMode}
-                  onValueChange={(v) => setImportMode(v as "insert" | "update" | "upsert")}
-                  disabled={stage === "importing"}
-                  options={[
-                    { value: "insert", label: "Insert only" },
-                    { value: "update", label: "Update only" },
-                    { value: "upsert", label: "Insert or Update" },
-                  ]}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Rows are matched to existing competencies by Competency Number.
-                </p>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Rows are matched to existing competencies by Competency Number — new codes are created,
+                existing ones are updated.
+              </p>
 
               {stageBanner}
 

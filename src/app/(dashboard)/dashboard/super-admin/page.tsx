@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, Building2, UserCheck, TrendingUp, ShieldCheck, Activity, Building, Landmark, FileText, Gauge } from "lucide-react";
+import { Users, Building2, UserCheck, TrendingUp, Activity, Building, Landmark, FileText } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { getDashboardStats } from "@/features/super-admin/services/superAdmin";
@@ -33,9 +33,8 @@ interface DashboardData {
 const quickActions: QuickActionItem[] = [
   { label: "Manage Institutions", href: "/super-admin/institutions", icon: <Landmark className="h-4 w-4" />, accent: "primary" },
   { label: "Manage Departments", href: "/super-admin/departments", icon: <Building className="h-4 w-4" />, accent: "blue" },
-  { label: "Import Competency Library", href: "/super-admin/competency-import", icon: <FileText className="h-4 w-4" />, accent: "orange" },
-  { label: "Platform Monitoring", href: "/super-admin/monitoring", icon: <Gauge className="h-4 w-4" />, accent: "purple" },
-  { label: "System Settings", href: "/super-admin/system-settings", icon: <ShieldCheck className="h-4 w-4" />, accent: "primary" },
+  { label: "Import Competency Library", href: "/curriculum/import", icon: <FileText className="h-4 w-4" />, accent: "orange" },
+  { label: "Manage Deans", href: "/super-admin/deans", icon: <UserCheck className="h-4 w-4" />, accent: "purple" },
 ];
 
 export default function SuperAdminDashboard() {

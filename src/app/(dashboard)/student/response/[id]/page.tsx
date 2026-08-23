@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   getCompetencyAssignmentById,
   getMyAssessments,
+  getOrCreateMyAssessment,
   submitStudentResponse,
   saveStudentResponse,
 } from "@/features/student/services/student";
@@ -60,9 +61,8 @@ export default function StudentResponseFormPage() {
         return;
       }
       setAssignment(assignmentData);
-      setAssessment(
-        assessments.find((a) => a.competencyAssignmentId === assignmentData.id)
-      );
+      const existing = assessments.find((a) => a.competencyAssignmentId === assignmentData.id);
+      setAssessment(existing ?? (await getOrCreateMyAssessment(assignmentData.id)));
 
       const competencyId = assignmentData.competencyId;
       const templates = await getQuestionTemplates(competencyId);

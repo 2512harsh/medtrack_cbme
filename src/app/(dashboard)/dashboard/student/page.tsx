@@ -9,28 +9,27 @@ import {
   MessageSquare,
   History,
   Library,
-  FileText,
   CheckCircle2,
   Hourglass,
-  ShieldCheck,
-  Bell,
-  CalendarClock,
-  XCircle,
-  Megaphone,
   PenLine,
   AlertTriangle,
   GraduationCap,
-  TrendingUp,
-  Timer,
-  Target,
   ListChecks,
   ArrowRight,
   Play,
+  FileText,
 } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import {
+  getStudent,
+  getMyCompetencies,
+  getMyAssessments,
+  getMyAssessmentAttempts,
+  getProgress,
+} from "@/features/student/services/student";
+import type { Assessment, AssessmentStatus } from "@/types";
 import {
   DashboardGrid,
   DashboardCol,
@@ -42,38 +41,21 @@ import {
   TaskCard,
   CompetencyCard,
   ProgressWidget,
-  AnalyticsWidget,
   ActivityTimeline,
-  NotificationWidget,
   EmptyWidget,
   DashboardSkeleton,
 } from "@/components/dashboard";
-import type {
-  PriorityTask,
-  CompetencyItem,
-  ActivityItem,
-  NotificationItem,
-} from "@/components/dashboard";
+import type { PriorityTask, CompetencyItem, ActivityItem, CompetencyStatus, TaskUrgency } from "@/components/dashboard";
 
 interface StudentDashboardData {
-  identity: {
-    batch: string;
-    academicYear: string;
-    semester: string;
-    department: string;
-    mentor: string;
-    rotation: string;
-    gpa?: string;
-  };
+  batch: string;
   kpis: {
-    assignedCompetencies: string;
-    completed: string;
-    pendingAssessment: string;
-    awaitingReview: string;
-    awaitingSignature: string;
-    remediationRequired: string;
-    averageScore: string;
-    weeklyHours: string;
+    assignedCompetencies: number;
+    completed: number;
+    pendingAssessment: number;
+    awaitingReview: number;
+    awaitingSignature: number;
+    remediationRequired: number;
   };
   tasks: PriorityTask[];
   competencies: CompetencyItem[];
@@ -82,146 +64,190 @@ interface StudentDashboardData {
     subjects: { subject: string; completed: number; total: number; color?: "blue" | "green" | "purple" | "orange" | "primary" }[];
     distribution: { label: string; value: number; className: string }[];
   };
-  analytics: {
-    trend: { label: string; value: number }[];
-    stats: { label: string; value: string | number; icon?: React.ReactNode; hint?: string }[];
-  };
   activity: ActivityItem[];
-  notifications: NotificationItem[];
+}
+
+function competencyStatus(status: AssessmentStatus | undefined): CompetencyStatus {
+  switch (status) {
+    case "Completed":
+      return "Completed";
+    case "In Progress":
+      return "In Progress";
+    case "Submitted":
+    case "Faculty Reviewed":
+    case "Waiting for Student Acknowledgement":
+      return "Awaiting Review";
+    case "Reattempt Scheduled":
+      return "Overdue";
+    default:
+      return "Pending";
+  }
+}
+
+function progressFor(status: AssessmentStatus | undefined): number {
+  switch (status) {
+    case "Completed":
+      return 100;
+    case "Waiting for Student Acknowledgement":
+    case "Faculty Reviewed":
+    case "Submitted":
+      return 85;
+    case "In Progress":
+      return 50;
+    case "Reattempt Scheduled":
+      return 40;
+    default:
+      return 0;
+  }
 }
 
 export default function StudentDashboard() {
-  const router = useRouter();
   const { user } = useAuth();
   const [data, setData] = useState<StudentDashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      setData({
-        identity: {
-          batch: "MBBS 2024",
-          academicYear: "2025-2026",
-          semester: "Semester 3",
-          department: "Pre-Clinical",
-          mentor: "Dr. Rajesh Kumar",
-          rotation: "Anatomy · Unit 2",
-          gpa: "8.4",
-        },
-        kpis: {
-          assignedCompetencies: "18",
-          completed: "12",
-          pendingAssessment: "3",
-          awaitingReview: "2",
-          awaitingSignature: "2",
-          remediationRequired: "1",
-          averageScore: "82%",
-          weeklyHours: "14h",
-        },
-        tasks: [
-          {
-            id: "t1",
+      const [student, myCompetencies, assessments, attempts, progressRows] = await Promise.all([
+        getStudent(),
+        getMyCompetencies(),
+        getMyAssessments(),
+        getMyAssessmentAttempts(),
+        getProgress(),
+      ]);
+
+      const assessmentByAssignmentId = new Map<string, Assessment>(
+        assessments.map((a) => [a.competencyAssignmentId, a])
+      );
+
+      const kpis = {
+        assignedCompetencies: myCompetencies.length,
+        completed: assessments.filter((a) => a.currentStatus === "Completed").length,
+        pendingAssessment: myCompetencies.filter((c) => {
+          const status = assessmentByAssignmentId.get(c.id)?.currentStatus;
+          return !status || status === "Draft" || status === "Assigned" || status === "In Progress";
+        }).length,
+        awaitingReview: assessments.filter(
+          (a) => a.currentStatus === "Submitted" || a.currentStatus === "Faculty Reviewed"
+        ).length,
+        awaitingSignature: assessments.filter((a) => a.currentStatus === "Waiting for Student Acknowledgement").length,
+        remediationRequired: assessments.filter((a) => a.currentStatus === "Reattempt Scheduled").length,
+      };
+
+      const tasks: PriorityTask[] = [];
+      for (const assignment of myCompetencies) {
+        const assessment = assessmentByAssignmentId.get(assignment.id);
+        const status = assessment?.currentStatus;
+        const competencyLabel = assignment.competency
+          ? `${assignment.competency.competencyCode} - ${assignment.competency.competencyTitle}`
+          : "Competency";
+        const subject = assignment.competency?.subjectName ?? "—";
+
+        if (status === "Reattempt Scheduled") {
+          tasks.push({
+            id: `${assignment.id}-remediation`,
             action: "Review Remediation",
-            competency: "BI2.1 - Protein Structure",
-            subject: "Biochemistry",
-            dueLabel: "Aug 8, 2026",
-            urgency: "overdue",
-            attempt: "Attempt 2",
+            competency: competencyLabel,
+            subject,
+            dueLabel: "Action needed",
+            urgency: "overdue" as TaskUrgency,
             actionLabel: "Review",
             actionHref: "/student/my-competencies",
-          },
-          {
-            id: "t2",
-            action: "Complete Assessment",
-            competency: "PY5.1 - Cardiac Cycle",
-            subject: "Physiology",
-            dueLabel: "Today",
-            urgency: "today",
-            attempt: "Attempt 1",
-            actionLabel: "Resume",
-            actionHref: "/student/my-competencies",
-          },
-          {
-            id: "t3",
+          });
+        } else if (status === "Waiting for Student Acknowledgement") {
+          tasks.push({
+            id: `${assignment.id}-ack`,
             action: "Acknowledge Feedback",
-            competency: "PY3.2 - Nerve Physiology",
-            subject: "Physiology",
-            dueLabel: "Tomorrow",
-            urgency: "tomorrow",
-            attempt: "Feedback ready",
+            competency: competencyLabel,
+            subject,
+            dueLabel: "Feedback ready",
+            urgency: "today" as TaskUrgency,
             actionLabel: "Acknowledge",
             actionHref: "/student/feedback",
-          },
-          {
-            id: "t4",
-            action: "Upload Evidence",
-            competency: "AN8.2 - Upper Limb",
-            subject: "Anatomy",
-            dueLabel: "Aug 14, 2026",
-            urgency: "upcoming",
-            attempt: "Attempt 1",
-            actionLabel: "Upload",
-            actionHref: "/student/evidence",
-          },
-        ],
-        competencies: [
-          { id: "c1", code: "AN8.2", title: "Upper Limb - Bones & Joints", subject: "Anatomy", status: "Completed", progress: 100, href: "/student/my-competencies" },
-          { id: "c2", code: "AN12.3", title: "Hand Anatomy", subject: "Anatomy", status: "Approved", progress: 100, href: "/student/my-competencies" },
-          { id: "c3", code: "PY3.2", title: "Nerve Physiology", subject: "Physiology", status: "In Progress", progress: 60, href: "/student/my-competencies" },
-          { id: "c4", code: "PY5.1", title: "Cardiac Cycle", subject: "Physiology", status: "Awaiting Review", progress: 85, href: "/student/my-competencies" },
-          { id: "c5", code: "BI2.1", title: "Protein Structure", subject: "Biochemistry", status: "Overdue", progress: 40, href: "/student/my-competencies" },
-          { id: "c6", code: "BI3.4", title: "Enzyme Kinetics", subject: "Biochemistry", status: "Pending", progress: 0, href: "/student/my-competencies" },
-        ],
+          });
+        } else if (status === "In Progress") {
+          tasks.push({
+            id: `${assignment.id}-inprogress`,
+            action: "Complete Assessment",
+            competency: competencyLabel,
+            subject,
+            dueLabel: "In progress",
+            urgency: "upcoming" as TaskUrgency,
+            actionLabel: "Resume",
+            actionHref: "/student/my-competencies",
+          });
+        }
+      }
+
+      const competencies: CompetencyItem[] = myCompetencies.map((assignment) => {
+        const assessment = assessmentByAssignmentId.get(assignment.id);
+        return {
+          id: assignment.id,
+          code: assignment.competency?.competencyCode ?? "—",
+          title: assignment.competency?.competencyTitle ?? "Untitled competency",
+          subject: assignment.competency?.subjectName ?? "—",
+          status: competencyStatus(assessment?.currentStatus),
+          progress: progressFor(assessment?.currentStatus),
+          href: "/student/my-competencies",
+        };
+      });
+
+      const overall =
+        progressRows.reduce((sum, r) => sum + r.total, 0) > 0
+          ? Math.round(
+              (progressRows.reduce((sum, r) => sum + r.completed, 0) /
+                progressRows.reduce((sum, r) => sum + r.total, 0)) *
+                100
+            )
+          : 0;
+
+      const inProgressCount = myCompetencies.filter(
+        (c) => assessmentByAssignmentId.get(c.id)?.currentStatus === "In Progress"
+      ).length;
+
+      const activity: ActivityItem[] = attempts
+        .slice()
+        .sort((a, b) => b.facultySignedAt.localeCompare(a.facultySignedAt))
+        .slice(0, 6)
+        .map((attempt) => ({
+          id: attempt.id,
+          title: attempt.studentAcknowledged
+            ? `Feedback acknowledged — ${attempt.decision}`
+            : `Faculty review received — ${attempt.decision}`,
+          timestamp: new Date(attempt.facultySignedAt).toLocaleString(),
+          icon: attempt.studentAcknowledged ? (
+            <CheckCircle2 className="h-4 w-4" />
+          ) : (
+            <ClipboardCheck className="h-4 w-4" />
+          ),
+          status: attempt.studentAcknowledged ? "Acknowledged" : "Awaiting your review",
+          statusVariant: attempt.studentAcknowledged ? "success" : "info",
+        }));
+
+      setData({
+        batch: student.batch,
+        kpis,
+        tasks,
+        competencies,
         progress: {
-          overall: 67,
-          subjects: [
-            { subject: "Anatomy", completed: 8, total: 10, color: "blue" },
-            { subject: "Physiology", completed: 3, total: 8, color: "green" },
-            { subject: "Biochemistry", completed: 2, total: 7, color: "purple" },
-          ],
+          overall,
+          subjects: progressRows.map((r, i) => ({
+            subject: r.subject,
+            completed: r.completed,
+            total: r.total,
+            color: (["blue", "green", "purple", "orange", "primary"] as const)[i % 5],
+          })),
           distribution: [
-            { label: "Completed", value: 12, className: "bg-green-500" },
-            { label: "In Progress", value: 3, className: "bg-blue-500" },
-            { label: "Pending", value: 1, className: "bg-orange-500" },
-            { label: "Awaiting Review", value: 2, className: "bg-purple-500" },
+            { label: "Completed", value: kpis.completed, className: "bg-green-500" },
+            { label: "In Progress", value: inProgressCount, className: "bg-blue-500" },
+            { label: "Awaiting Review", value: kpis.awaitingReview + kpis.awaitingSignature, className: "bg-purple-500" },
+            { label: "Remediation", value: kpis.remediationRequired, className: "bg-red-500" },
           ],
         },
-        analytics: {
-          trend: [
-            { label: "W1", value: 2 },
-            { label: "W2", value: 3 },
-            { label: "W3", value: 2 },
-            { label: "W4", value: 5 },
-            { label: "W5", value: 4 },
-            { label: "W6", value: 6 },
-            { label: "W7", value: 5 },
-            { label: "W8", value: 7 },
-          ],
-          stats: [
-            { label: "Avg. Score", value: "82%", icon: <TrendingUp className="h-3.5 w-3.5" />, hint: "+4% vs last week" },
-            { label: "Weekly Hours", value: "14h", icon: <Clock className="h-3.5 w-3.5" />, hint: "Target 12h" },
-            { label: "This Week", value: "3", icon: <Target className="h-3.5 w-3.5" />, hint: "competencies" },
-            { label: "Velocity", value: "2.1/wk", icon: <Timer className="h-3.5 w-3.5" />, hint: "completion rate" },
-            { label: "Completed", value: "12", icon: <CheckCircle2 className="h-3.5 w-3.5" />, hint: "of 18 assigned" },
-            { label: "Awaiting Review", value: "2", icon: <Hourglass className="h-3.5 w-3.5" />, hint: "faculty review" },
-          ],
-        },
-        activity: [
-          { id: "a1", title: "Assessment submitted", timestamp: "Today · 09:41 AM", icon: <ClipboardCheck className="h-4 w-4" />, status: "Submitted", statusVariant: "info" },
-          { id: "a2", title: "Evidence approved by Dr. Rajesh Kumar", timestamp: "Yesterday · 04:12 PM", icon: <ShieldCheck className="h-4 w-4" />, status: "Approved", statusVariant: "success" },
-          { id: "a3", title: "Feedback received for Nerve Physiology", timestamp: "Aug 4, 2026 · 11:03 AM", icon: <MessageSquare className="h-4 w-4" />, status: "New" },
-          { id: "a4", title: "Competency completed: Hand Anatomy", timestamp: "Aug 2, 2026 · 03:47 PM", icon: <CheckCircle2 className="h-4 w-4" />, status: "Completed", statusVariant: "success" },
-        ],
-        notifications: [
-          { id: "n1", type: "deadline", title: "Assessment due today", message: "PY5.1 Cardiac Cycle assessment closes at 11:59 PM tonight.", timestamp: "2 hours ago", unread: true, icon: <CalendarClock className="h-4 w-4" /> },
-          { id: "n2", type: "feedback", title: "New faculty feedback", message: "Dr. Sunita Devi posted feedback on Nerve Physiology.", timestamp: "5 hours ago", unread: true, icon: <MessageSquare className="h-4 w-4" /> },
-          { id: "n3", type: "evidence", title: "Evidence rejected", message: "The uploaded evidence for AN8.2 needs revision.", timestamp: "Yesterday", unread: true, icon: <XCircle className="h-4 w-4" /> },
-          { id: "n4", type: "assessment", title: "Assessment reminder", message: "Enzyme Kinetics assessment starts next week.", timestamp: "2 days ago", unread: false, icon: <Bell className="h-4 w-4" /> },
-          { id: "n5", type: "announcement", title: "Platform announcement", message: "New learning resources are available in the library.", timestamp: "3 days ago", unread: false, icon: <Megaphone className="h-4 w-4" /> },
-        ],
+        activity,
       });
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load dashboard data"));
@@ -286,34 +312,26 @@ export default function StudentDashboard() {
         identity={
           <>
             <IdentityItem label="Student" value={fullName} />
-            <IdentityItem label="Batch" value={data.identity.batch} />
-            <IdentityItem label="Academic Year" value={data.identity.academicYear} />
-            <IdentityItem label="Semester" value={data.identity.semester} />
-            <IdentityItem label="Department" value={data.identity.department} />
-            <IdentityItem label="Assigned Mentor" value={data.identity.mentor} />
-            <IdentityItem label="Current Rotation" value={data.identity.rotation} />
-            {data.identity.gpa && <IdentityItem label="Current GPA" value={data.identity.gpa} />}
+            <IdentityItem label="Batch" value={data.batch} />
             <IdentityItem label="Completion" value={`${data.progress.overall}%`} />
           </>
         }
       />
 
-      {/* KPI row — 6 cards on desktop */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <MetricCard label="Assigned Competencies" value={data.kpis.assignedCompetencies} icon={<BookOpen className="h-5 w-5" />} color="blue" sub="12 completed · 6 pending" />
-        <MetricCard label="Completed" value={data.kpis.completed} icon={<CheckCircle2 className="h-5 w-5" />} color="green" trend="+3 this month" trendUp />
-        <MetricCard label="Pending Assessment" value={data.kpis.pendingAssessment} icon={<Clock className="h-5 w-5" />} color="orange" sub="1 due today" />
-        <MetricCard label="Awaiting Faculty Review" value={data.kpis.awaitingReview} icon={<Hourglass className="h-5 w-5" />} color="purple" sub="2 in review" />
-        <MetricCard label="Awaiting My Signature" value={data.kpis.awaitingSignature} icon={<PenLine className="h-5 w-5" />} color="yellow" sub="Acknowledge feedback" />
-        <MetricCard label="Remediation Required" value={data.kpis.remediationRequired} icon={<AlertTriangle className="h-5 w-5" />} color="red" sub="Schedule a session" />
+        <MetricCard label="Assigned Competencies" value={String(data.kpis.assignedCompetencies)} icon={<BookOpen className="h-5 w-5" />} color="blue" />
+        <MetricCard label="Completed" value={String(data.kpis.completed)} icon={<CheckCircle2 className="h-5 w-5" />} color="green" />
+        <MetricCard label="Pending Assessment" value={String(data.kpis.pendingAssessment)} icon={<Clock className="h-5 w-5" />} color="orange" />
+        <MetricCard label="Awaiting Faculty Review" value={String(data.kpis.awaitingReview)} icon={<Hourglass className="h-5 w-5" />} color="purple" />
+        <MetricCard label="Awaiting My Signature" value={String(data.kpis.awaitingSignature)} icon={<PenLine className="h-5 w-5" />} color="yellow" />
+        <MetricCard label="Remediation Required" value={String(data.kpis.remediationRequired)} icon={<AlertTriangle className="h-5 w-5" />} color="red" />
       </div>
 
       <DashboardGrid>
-        {/* Priority Tasks (8 cols) + Progress Overview (4 cols) */}
         <DashboardCol span={8}>
           <SectionCard
             title="Priority Tasks"
-            description="Sorted by urgency — overdue, due today, due tomorrow"
+            description="Things that need your action"
             action={
               <Link href="/student/my-competencies" className="text-xs font-medium text-primary hover:underline">
                 View all
@@ -354,8 +372,7 @@ export default function StudentDashboard() {
           </SectionCard>
         </DashboardCol>
 
-        {/* Competencies (8 cols) + Notifications (4 cols) */}
-        <DashboardCol span={8}>
+        <DashboardCol span={12}>
           <SectionCard
             title="Competencies"
             description="Your assigned competencies and their status"
@@ -381,30 +398,10 @@ export default function StudentDashboard() {
           </SectionCard>
         </DashboardCol>
 
-        <DashboardCol span={4}>
-          <SectionCard
-            title="Notifications"
-            description="Alerts, feedback and reminders"
-            action={
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                <Bell className="h-3.5 w-3.5" />
-                {data.notifications.filter((n) => n.unread).length} unread
-              </span>
-            }
-          >
-            <NotificationWidget
-              items={data.notifications}
-              onViewAll={() => router.push("/assessment/notifications")}
-              onOpen={() => router.push("/assessment/notifications")}
-            />
-          </SectionCard>
-        </DashboardCol>
-
-        {/* Activity Timeline (6 cols) + Analytics (6 cols) */}
-        <DashboardCol span={6}>
+        <DashboardCol span={12}>
           <SectionCard
             title="Recent Activity"
-            description="Your latest learning activity"
+            description="Your latest faculty feedback"
             action={
               <Link href="/student/assessment-history" className="text-xs font-medium text-primary hover:underline">
                 History
@@ -423,21 +420,6 @@ export default function StudentDashboard() {
           </SectionCard>
         </DashboardCol>
 
-        <DashboardCol span={6}>
-          <SectionCard
-            title="Analytics"
-            description="Weekly progress trend and key insights"
-            action={
-              <Link href="/student/progress" className="text-xs font-medium text-primary hover:underline">
-                Insights
-              </Link>
-            }
-          >
-            <AnalyticsWidget trend={data.analytics.trend} stats={data.analytics.stats} />
-          </SectionCard>
-        </DashboardCol>
-
-        {/* Quick Actions — full width at the bottom */}
         <DashboardCol span={12}>
           <SectionCard
             title="Quick Actions"

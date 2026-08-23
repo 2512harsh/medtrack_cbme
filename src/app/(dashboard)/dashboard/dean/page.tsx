@@ -5,7 +5,6 @@ import { Users, GraduationCap, ClipboardCheck, TrendingUp, AlertTriangle, Activi
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import {
-  getDepartmentById,
   getDepartments,
   getFaculty,
   getStudents,
@@ -70,17 +69,17 @@ export default function DeanDashboard() {
     setIsLoading(true);
     setError(null);
     try {
-      const [department, allDepartments, faculty, students] = await Promise.all([
-        departmentId ? getDepartmentById(departmentId) : Promise.resolve(undefined),
+      // Not filtered by departmentId: faculty/students now come from the real DB, and
+      // the mock logged-in user's departmentId doesn't match real department ids.
+      // Departments are also global now (no institution scoping), so no institution filter either.
+      const [allDepartments, faculty, students] = await Promise.all([
         getDepartments(),
-        // Not filtered by departmentId: faculty now comes from the real DB, and the
-        // mock logged-in user's departmentId ("dept-1") doesn't match real department ids.
         getFaculty(),
-        getStudents(departmentId),
+        getStudents(),
       ]);
 
       const progressRows = isDean
-        ? (await getDepartmentWiseProgress(department?.institutionId)).map((r) => ({ label: r.department, completed: r.completed, total: r.total }))
+        ? (await getDepartmentWiseProgress()).map((r) => ({ label: r.department, completed: r.completed, total: r.total }))
         : (await getDepartmentProgress(departmentId)).map((r) => ({ label: r.subject, completed: r.completed, total: r.total }));
 
       const totalCompleted = progressRows.reduce((sum, s) => sum + s.completed, 0);
@@ -92,9 +91,7 @@ export default function DeanDashboard() {
       const pending = Math.round(remaining * 0.2);
       const awaitingReview = Math.max(remaining - inProgress - pending, 0);
 
-      const departmentCount = department
-        ? allDepartments.filter((d) => d.institutionId === department.institutionId).length
-        : allDepartments.length;
+      const departmentCount = allDepartments.length;
 
       setData({
         departmentCount,

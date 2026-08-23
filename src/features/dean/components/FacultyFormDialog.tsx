@@ -20,6 +20,7 @@ export interface FacultyFormValues {
   firstName: string;
   lastName: string;
   email: string;
+  password: string;
   departmentId: string;
   designation: string;
   employeeCode: string;
@@ -48,6 +49,7 @@ export function FacultyFormDialog({
     firstName: "",
     lastName: "",
     email: "",
+    password: "",
     departmentId: "",
     designation: "",
     employeeCode: "",
@@ -62,6 +64,7 @@ export function FacultyFormDialog({
         firstName: faculty?.user?.firstName ?? "",
         lastName: faculty?.user?.lastName ?? "",
         email: faculty?.user?.email ?? "",
+        password: "",
         departmentId: faculty?.departmentId ?? departments[0]?.id ?? "",
         designation: faculty?.designation ?? "",
         employeeCode: faculty?.employeeCode ?? "",
@@ -83,7 +86,8 @@ export function FacultyFormDialog({
       !values.email ||
       !values.departmentId ||
       !values.designation ||
-      !values.employeeCode
+      !values.employeeCode ||
+      (!faculty && !values.password)
     ) {
       setError("Please fill in all required fields.");
       return;
@@ -136,6 +140,19 @@ export function FacultyFormDialog({
               value={values.email}
               onChange={(e) => set("email", e.target.value)}
               disabled={isSaving}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password">{faculty ? "New Password" : "Password *"}</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder={faculty ? "Leave blank to keep current password" : "Set a login password"}
+              value={values.password}
+              onChange={(e) => set("password", e.target.value)}
+              disabled={isSaving}
+              autoComplete="new-password"
             />
           </div>
 

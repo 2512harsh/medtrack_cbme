@@ -77,9 +77,9 @@ async function getAssignedCompData(): Promise<AssignedCompRow[]> {
     competencyId: a.competency?.id ?? "",
     competencyCode: a.competency?.competencyCode ?? "Unknown",
     competencyTitle: a.competency?.competencyTitle ?? "Unknown",
-    subject: a.competency?.competencyTitle ?? "Unknown",
+    subject: a.competency?.subjectName ?? "Unknown",
     batch: a.batch,
-    pendingCount: Math.floor(Math.random() * 5),
+    pendingCount: a.pendingCount ?? 0,
   }));
 }
 

@@ -3,19 +3,15 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import {
-  getDepartmentById,
-  getInstitutionById,
-  getDeanAccounts,
-  getHodAccounts,
-} from "@/features/super-admin/services/superAdmin";
+import { getDepartmentById, getInstitutionById } from "@/features/super-admin/services/superAdmin";
+import { getHodAccounts } from "@/features/dean/services/dean";
 import { PageLoadingSkeleton } from "@/components/shared/LoadingSkeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { ChevronRight, Building2, UserCheck, BookOpen } from "lucide-react";
+import { ChevronRight, UserCheck } from "lucide-react";
 
 export default function DepartmentDetailPage() {
   const params = useParams<{ id: string }>();
@@ -26,13 +22,8 @@ export default function DepartmentDetailPage() {
   const [department, setDepartment] = useState<Awaited<
     ReturnType<typeof getDepartmentById>
   >>(undefined);
-  const [institution, setInstitution] = useState<Awaited<
-    ReturnType<typeof getInstitutionById>
-  >>(undefined);
-  type DeanAccountType = Awaited<ReturnType<typeof getDeanAccounts>>[number];
-  const [dean, setDean] = useState<DeanAccountType | undefined>(undefined);
-  type HodAccountType = Awaited<ReturnType<typeof getHodAccounts>>[number];
-  const [hod, setHod] = useState<HodAccountType | undefined>(undefined);
+  type HodRow = { id: string; firstName: string; lastName: string; email: string; institutionName: string };
+  const [hods, setHods] = useState<HodRow[]>([]);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -45,14 +36,20 @@ export default function DepartmentDetailPage() {
         return;
       }
       setDepartment(dept);
-      const [inst, deans, hods] = await Promise.all([
-        getInstitutionById(dept.institutionId),
-        getDeanAccounts(),
-        getHodAccounts(),
-      ]);
-      setInstitution(inst);
-      setDean(dept.deanId ? deans.find((h) => h.id === dept.deanId) : undefined);
-      setHod(dept.hodId ? hods.find((h) => h.id === dept.hodId) : undefined);
+
+      const hodAccounts = await getHodAccounts({ departmentId: dept.id });
+      const institutions = await Promise.all(
+        hodAccounts.map((h) => (h.institutionId ? getInstitutionById(h.institutionId) : Promise.resolve(undefined)))
+      );
+      setHods(
+        hodAccounts.map((h, i) => ({
+          id: h.id,
+          firstName: h.firstName,
+          lastName: h.lastName,
+          email: h.email,
+          institutionName: institutions[i]?.name ?? "Unassigned institution",
+        }))
+      );
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load department"));
     } finally {
@@ -101,7 +98,7 @@ export default function DepartmentDetailPage() {
         <div className="flex items-center justify-between mt-2">
           <PageHeader
             title={department.name}
-            description={institution?.name ?? "Unknown institution"}
+            description={department.description ?? "Shared across every institution"}
           />
           <StatusBadge
             variant={department.status === "ACTIVE" ? "success" : "gray"}
@@ -111,68 +108,31 @@ export default function DepartmentDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Institution</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {institution ? (
-              <Link
-                href={`/super-admin/institutions/${institution.id}`}
-                className="text-lg font-medium text-primary hover:underline"
-              >
-                {institution.name}
-              </Link>
-            ) : (
-              <p className="text-lg font-medium">Unassigned</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dean</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-medium">
-              {dean ? `${dean.firstName} ${dean.lastName}` : "Unassigned"}
-            </p>
-            {dean && <p className="text-xs text-muted-foreground">{dean.email}</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">HOD</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-medium">
-              {hod ? `${hod.firstName} ${hod.lastName}` : "Unassigned"}
-            </p>
-            {hod && <p className="text-xs text-muted-foreground">{hod.email}</p>}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Status</CardTitle>
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-lg font-medium">{department.status ?? "ACTIVE"}</p>
-          </CardContent>
-        </Card>
-      </div>
-
       <Card>
         <CardHeader>
-          <CardTitle>Description</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <UserCheck className="h-4 w-4 text-muted-foreground" />
+            HODs by Institution
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {department.description ?? "No description provided."}
-          </p>
+          {hods.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No HOD has been assigned to this department at any institution yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {hods.map((h) => (
+                <div key={h.id} className="flex items-center justify-between rounded-lg border px-4 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium">{h.firstName} {h.lastName}</p>
+                    <p className="text-xs text-muted-foreground">{h.email}</p>
+                  </div>
+                  <span className="text-sm text-muted-foreground">{h.institutionName}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

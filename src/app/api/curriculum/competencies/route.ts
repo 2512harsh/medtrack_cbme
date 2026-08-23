@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { competencies } from "@/db/schema";
+import { isUniqueViolation } from "@/lib/db-errors";
 
 export async function GET(request: NextRequest) {
   const subtopicId = request.nextUrl.searchParams.get("subtopicId");
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
       .returning();
     return NextResponse.json(row, { status: 201 });
   } catch (err) {
-    if (err instanceof Error && "code" in err && err.code === "23505") {
+    if (isUniqueViolation(err)) {
       return NextResponse.json(
         { message: `A competency with code "${body.competencyCode}" already exists.` },
         { status: 409 }

@@ -1,37 +1,75 @@
 import type { Student, CompetencyAssignment, Assessment, AssessmentAttempt } from "@/types";
-import {
-  mockAssignedStudents,
-  mockAssignedCompetencies,
-  mockAssessments,
-  mockAssessmentAttempts,
-} from "@/features/faculty/mock/faculty";
 
-export function getAssignedStudents(): Promise<Student[]> {
-  return Promise.resolve(mockAssignedStudents);
+async function apiGet<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Failed to load ${url}`);
+  }
+  return res.json();
 }
 
-export function getAssignedCompetencies(): Promise<CompetencyAssignment[]> {
-  return Promise.resolve(mockAssignedCompetencies);
+async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.message ?? `Failed to save (${url})`);
+  }
+  return res.json();
+}
+
+interface MeFaculty {
+  id: string;
+}
+
+async function getCurrentFacultyId(): Promise<string> {
+  const me = await apiGet<MeFaculty>("/api/faculty/me");
+  return me.id;
+}
+
+export async function getAssignedStudents(): Promise<Student[]> {
+  const facultyId = await getCurrentFacultyId();
+  const allocations = await apiGet<{ student: Student }[]>(
+    `/api/dean/student-allocations?facultyId=${encodeURIComponent(facultyId)}`
+  );
+  const byId = new Map(allocations.filter((a) => a.student).map((a) => [a.student.id, a.student]));
+  return [...byId.values()];
+}
+
+export async function getAssignedCompetencies(): Promise<CompetencyAssignment[]> {
+  const facultyId = await getCurrentFacultyId();
+  return apiGet<CompetencyAssignment[]>(
+    `/api/dean/competency-assignments?facultyId=${encodeURIComponent(facultyId)}`
+  );
 }
 
 export function getAssessments(): Promise<Assessment[]> {
-  return Promise.resolve(mockAssessments);
+  return apiGet<Assessment[]>("/api/assessments");
 }
 
 export function getAssessmentAttempts(): Promise<AssessmentAttempt[]> {
-  return Promise.resolve(mockAssessmentAttempts);
+  return apiGet<AssessmentAttempt[]>("/api/assessment-attempts");
 }
 
-export function getAssessmentById(id: string): Promise<Assessment | undefined> {
-  return Promise.resolve(mockAssessments.find((a) => a.id === id));
+export async function getAssessmentById(id: string): Promise<Assessment | undefined> {
+  const res = await fetch(`/api/assessments/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load assessment ${id}`);
+  return res.json();
 }
 
-export function getAssessmentAttemptById(id: string): Promise<AssessmentAttempt | undefined> {
-  return Promise.resolve(mockAssessmentAttempts.find((a) => a.id === id));
+export async function getAssessmentAttemptById(id: string): Promise<AssessmentAttempt | undefined> {
+  const res = await fetch(`/api/assessment-attempts/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load assessment attempt ${id}`);
+  return res.json();
 }
 
 export function getAssessmentAttemptsByAssessmentId(assessmentId: string): Promise<AssessmentAttempt[]> {
-  return Promise.resolve(mockAssessmentAttempts.filter((a) => a.assessmentId === assessmentId));
+  return apiGet<AssessmentAttempt[]>(`/api/assessment-attempts?assessmentId=${encodeURIComponent(assessmentId)}`);
 }
 
 export function submitAssessment(data: {
@@ -41,37 +79,12 @@ export function submitAssessment(data: {
   remarks: string;
   facultySignature: string;
 }): Promise<AssessmentAttempt> {
-  const priorAttempts = mockAssessmentAttempts.filter((a) => a.assessmentId === data.assessmentId);
-  const attemptNumber = priorAttempts.length + 1;
-  const newAttempt: AssessmentAttempt = {
-    id: `attempt-${Date.now()}`,
-    assessmentId: data.assessmentId,
-    attemptNumber,
-    facultyId: "fac-1",
-    rating: data.rating,
-    decision: data.decision,
-    remarks: data.remarks,
-    facultySignature: data.facultySignature,
-    facultySignedAt: new Date().toISOString(),
-    studentAcknowledged: false,
-    status: "Submitted",
-  };
-  mockAssessmentAttempts.push(newAttempt);
-
-  const assessment = mockAssessments.find((a) => a.id === data.assessmentId);
-  if (assessment) {
-    assessment.currentAttempt = attemptNumber;
-    assessment.currentStatus =
-      data.decision === "Needs Remediation"
-        ? "Reattempt Scheduled"
-        : "Waiting for Student Acknowledgement";
-  }
-  return Promise.resolve(newAttempt);
+  return apiSend<AssessmentAttempt>("/api/assessment-attempts", "POST", data);
 }
 
 const draftStore = new Map<string, { rating: string; remarks: string; facultySignature: string }>();
 
-export function saveAssessmentDraft(data: {
+export async function saveAssessmentDraft(data: {
   assessmentId: string;
   rating: string;
   remarks: string;
@@ -82,11 +95,7 @@ export function saveAssessmentDraft(data: {
     remarks: data.remarks,
     facultySignature: data.facultySignature,
   });
-  const assessment = mockAssessments.find((a) => a.id === data.assessmentId);
-  if (assessment) {
-    assessment.currentStatus = "Draft";
-  }
-  return Promise.resolve();
+  await apiSend<Assessment>(`/api/assessments/${data.assessmentId}`, "PATCH", { currentStatus: "Draft" });
 }
 
 export function getAssessmentDraft(
@@ -99,33 +108,21 @@ export function getOrCreateAssessment(
   studentId: string,
   competencyAssignmentId: string
 ): Promise<Assessment> {
-  const existing = mockAssessments.find(
-    (a) => a.studentId === studentId && a.competencyAssignmentId === competencyAssignmentId
-  );
-  if (existing) return Promise.resolve(existing);
-
-  const assignment = mockAssignedCompetencies.find((c) => c.id === competencyAssignmentId);
-  const student = mockAssignedStudents.find((s) => s.id === studentId);
-  const assessment: Assessment = {
-    id: `assess-${Date.now()}`,
-    studentId,
-    competencyAssignmentId,
-    currentAttempt: 0,
-    currentStatus: "Draft",
-    createdAt: new Date().toISOString(),
-    student,
-    competencyAssignment: assignment,
-  };
-  mockAssessments.push(assessment);
-  return Promise.resolve(assessment);
+  return apiSend<Assessment>("/api/assessments", "POST", { studentId, competencyAssignmentId });
 }
 
-export function getStudentById(id: string): Promise<Student | undefined> {
-  return Promise.resolve(mockAssignedStudents.find((s) => s.id === id));
+export async function getStudentById(id: string): Promise<Student | undefined> {
+  const res = await fetch(`/api/dean/students/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load student ${id}`);
+  return res.json();
 }
 
-export function getCompetencyAssignmentById(id: string): Promise<CompetencyAssignment | undefined> {
-  return Promise.resolve(mockAssignedCompetencies.find((a) => a.id === id));
+export async function getCompetencyAssignmentById(id: string): Promise<CompetencyAssignment | undefined> {
+  const res = await fetch(`/api/dean/competency-assignments/${id}`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load competency assignment ${id}`);
+  return res.json();
 }
 
 export interface FacultyAssessmentHistoryRow {
@@ -146,10 +143,13 @@ export interface FacultyAssessmentHistoryRow {
   status: AssessmentAttempt["status"];
 }
 
-export function getFacultyAssessmentHistory(): Promise<FacultyAssessmentHistoryRow[]> {
-  const rows = mockAssessmentAttempts
+export async function getFacultyAssessmentHistory(): Promise<FacultyAssessmentHistoryRow[]> {
+  const [attempts, assessments] = await Promise.all([getAssessmentAttempts(), getAssessments()]);
+  const assessmentById = new Map(assessments.map((a) => [a.id, a]));
+
+  const rows = attempts
     .map((attempt) => {
-      const assessment = mockAssessments.find((a) => a.id === attempt.assessmentId);
+      const assessment = assessmentById.get(attempt.assessmentId);
       const student = assessment?.student;
       const competency = assessment?.competencyAssignment?.competency;
       return {
@@ -173,5 +173,5 @@ export function getFacultyAssessmentHistory(): Promise<FacultyAssessmentHistoryR
       };
     })
     .sort((a, b) => b.facultySignedAt.localeCompare(a.facultySignedAt));
-  return Promise.resolve(rows);
+  return rows;
 }

@@ -9,6 +9,7 @@ export interface UserSummary {
   email: string;
   role: UserRole;
   status: UserStatus;
+  institutionId?: string;
   departmentId?: string;
   createdAt: string;
   updatedAt: string;
@@ -31,11 +32,8 @@ export interface Institution {
 
 export interface Department {
   id: string;
-  institutionId: string;
   name: string;
   description?: string;
-  deanId?: string;
-  hodId?: string;
   status?: "ACTIVE" | "INACTIVE";
   createdAt: string;
   updatedAt: string;
@@ -106,6 +104,7 @@ export interface Competency {
   competencyLevel?: string;
   core?: boolean;
   status: string;
+  subjectName?: string;
 }
 
 export interface QuestionTemplate {
@@ -146,6 +145,7 @@ export interface CompetencyAssignment {
   assignedDate: string;
   faculty?: Faculty;
   competency?: Competency;
+  pendingCount?: number;
 }
 
 export type AssessmentStatus =

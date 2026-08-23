@@ -1,23 +1,41 @@
-import React from "react";
+"use client";
+
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AlertTriangle } from "lucide-react";
 import { getAssessmentAttempts } from "@/features/faculty/services/faculty";
 
-export default async function AttemptTimelinePage() {
-  let attempts: Awaited<ReturnType<typeof getAssessmentAttempts>> = [];
-  let error: string | null = null;
-  try {
-    attempts = await getAssessmentAttempts();
-  } catch {
-    error = "Failed to load the attempt timeline.";
-  }
+export default function AttemptTimelinePage() {
+  const [attempts, setAttempts] = useState<Awaited<ReturnType<typeof getAssessmentAttempts>>>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        setAttempts(await getAssessmentAttempts());
+      } catch {
+        setError("Failed to load the attempt timeline.");
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Attempt Timeline" description="View the timeline of assessment attempts" />
 
-      {error ? (
+      {isLoading ? (
+        <Card>
+          <CardContent className="py-8">
+            <p className="text-center text-muted-foreground">Loading...</p>
+          </CardContent>
+        </Card>
+      ) : error ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12">
             <AlertTriangle className="h-6 w-6 text-destructive" />

@@ -5,17 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
 import { Plus, Power } from "lucide-react";
-import {
-  getDepartments,
-  getInstitutionById,
-  getDeanAccounts,
-  getHodAccounts,
-  createDepartment,
-  setDepartmentStatus,
-  createDeanAccount,
-  createHodAccount,
-  updateDepartment,
-} from "@/features/super-admin/services/superAdmin";
+import { getDepartments, createDepartment, setDepartmentStatus } from "@/features/super-admin/services/superAdmin";
 import { ColumnDef } from "@tanstack/react-table";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
@@ -24,13 +14,6 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -38,16 +21,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 
 type DepartmentRow = {
   id: string;
   name: string;
   description: string;
-  institutionId: string;
-  institutionName: string;
-  deanName: string;
-  hodName: string;
   status: string;
 };
 
@@ -55,25 +33,10 @@ export default function DepartmentsPage() {
   const [data, setData] = useState<DepartmentRow[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [institutions, setInstitutions] = useState<{ id: string; name: string }[]>([]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    description: "",
-    institutionId: "",
-    createDean: false,
-    deanFirstName: "",
-    deanLastName: "",
-    deanEmail: "",
-    deanPassword: "",
-    createHod: false,
-    hodFirstName: "",
-    hodLastName: "",
-    hodEmail: "",
-    hodPassword: "",
-  });
+  const [form, setForm] = useState({ name: "", description: "" });
 
   const [statusTarget, setStatusTarget] = useState<DepartmentRow | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -82,40 +45,14 @@ export default function DepartmentsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [departments, deans, hods] = await Promise.all([
-        getDepartments(),
-        getDeanAccounts(),
-        getHodAccounts(),
-      ]);
-      const institutions = await Promise.all(
-        departments.map((d) => getInstitutionById(d.institutionId))
-      );
-      const rows: DepartmentRow[] = departments.map((d, index) => {
-        const inst = institutions[index];
-        const dean = deans.find((h) => h.id === d.deanId);
-        const hod = hods.find((h) => h.id === d.hodId);
-        return {
+      const departments = await getDepartments();
+      setData(
+        departments.map((d) => ({
           id: d.id,
           name: d.name,
           description: d.description ?? "-",
-          institutionId: d.institutionId,
-          institutionName: inst?.name ?? "Unknown",
-          deanName: dean ? `${dean.firstName} ${dean.lastName}` : "Unassigned",
-          hodName: hod ? `${hod.firstName} ${hod.lastName}` : "Unassigned",
           status: d.status ?? "ACTIVE",
-        };
-      });
-      setData(rows);
-
-      const allInst = await Promise.all(
-        Array.from(new Set(departments.map((d) => d.institutionId))).map((id) =>
-          getInstitutionById(id)
-        )
-      );
-      setInstitutions(
-        allInst
-          .filter((i) => i)
-          .map((i) => ({ id: i!.id, name: i!.name }))
+        }))
       );
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load departments"));
@@ -141,9 +78,7 @@ export default function DepartmentsPage() {
         </Link>
       ),
     },
-    { accessorKey: "institutionName", header: "Institution" },
-    { accessorKey: "deanName", header: "Dean" },
-    { accessorKey: "hodName", header: "HOD" },
+    { accessorKey: "description", header: "Description" },
     {
       accessorKey: "status",
       header: "Status",
@@ -179,73 +114,22 @@ export default function DepartmentsPage() {
   ];
 
   const handleCreate = async () => {
-    if (!form.name || !form.institutionId) {
-      toast.error("Name and institution are required");
+    if (!form.name.trim()) {
+      toast.error("Name is required");
       return;
-    }
-
-    if (form.createDean) {
-      if (!form.deanFirstName || !form.deanLastName || !form.deanEmail || !form.deanPassword) {
-        toast.error("All Dean fields are required if creating a Dean account");
-        return;
-      }
-    }
-
-    if (form.createHod) {
-      if (!form.hodFirstName || !form.hodLastName || !form.hodEmail || !form.hodPassword) {
-        toast.error("All HOD fields are required if creating an HOD account");
-        return;
-      }
     }
 
     setSubmitting(true);
     try {
-      const department = await createDepartment({
-        name: form.name,
+      await createDepartment({
+        name: form.name.trim(),
         description: form.description || undefined,
-        institutionId: form.institutionId,
         status: "ACTIVE",
       });
 
-      if (form.createDean) {
-        const dean = await createDeanAccount({
-          firstName: form.deanFirstName,
-          lastName: form.deanLastName,
-          email: form.deanEmail,
-          password: form.deanPassword,
-          departmentId: department.id,
-        });
-        await updateDepartment(department.id, { deanId: dean.id });
-      }
-
-      if (form.createHod) {
-        const hod = await createHodAccount({
-          firstName: form.hodFirstName,
-          lastName: form.hodLastName,
-          email: form.hodEmail,
-          password: form.hodPassword,
-          departmentId: department.id,
-        });
-        await updateDepartment(department.id, { hodId: hod.id });
-      }
-
       toast.success("Department created successfully");
       setDialogOpen(false);
-      setForm({
-        name: "",
-        description: "",
-        institutionId: "",
-        createDean: false,
-        deanFirstName: "",
-        deanLastName: "",
-        deanEmail: "",
-        deanPassword: "",
-        createHod: false,
-        hodFirstName: "",
-        hodLastName: "",
-        hodEmail: "",
-        hodPassword: "",
-      });
+      setForm({ name: "", description: "" });
       await fetchData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create department");
@@ -274,7 +158,7 @@ export default function DepartmentsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Departments"
-        description="Manage departments across institutions"
+        description="The shared department list used across every institution on the platform"
         actions={
           <Button onClick={() => setDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -290,7 +174,7 @@ export default function DepartmentsPage() {
         onRetry={fetchData}
         emptyTitle="No departments found"
         emptyDescription="No departments have been created yet."
-        loadingColumns={5}
+        loadingColumns={3}
       >
         {(departments) => (
           <DataTable
@@ -306,7 +190,8 @@ export default function DepartmentsPage() {
           <DialogHeader>
             <DialogTitle>Add Department</DialogTitle>
             <DialogDescription>
-              Create a new department under an institution.
+              Departments are shared across every institution — a Dean or HOD is assigned to a department at a
+              specific institution from the Dean/HOD Management pages.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -316,7 +201,7 @@ export default function DepartmentsPage() {
                 id="dept-name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="e.g. Anatomy"
+                placeholder="e.g. Orthopedics"
               />
             </div>
             <div className="space-y-2">
@@ -325,140 +210,9 @@ export default function DepartmentsPage() {
                 id="dept-desc"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="e.g. Department of Anatomy"
+                placeholder="e.g. Department of Orthopedics"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Institution *</Label>
-              <Select
-                items={institutions.map((inst) => ({ value: inst.id, label: inst.name }))}
-                value={form.institutionId}
-                onValueChange={(value) => setForm({ ...form, institutionId: value ?? "" })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select institution" />
-                </SelectTrigger>
-                <SelectContent>
-                  {institutions.map((inst) => (
-                    <SelectItem key={inst.id} value={inst.id}>
-                      {inst.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2 pt-2 border-t mt-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="create-dean"
-                  checked={form.createDean}
-                  onCheckedChange={(checked) =>
-                    setForm({ ...form, createDean: checked === true })
-                  }
-                />
-                <Label htmlFor="create-dean">Create Dean Account for this Department</Label>
-              </div>
-            </div>
-
-            {form.createDean && (
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="dean-firstName">First Name *</Label>
-                  <Input
-                    id="dean-firstName"
-                    value={form.deanFirstName}
-                    onChange={(e) => setForm({ ...form, deanFirstName: e.target.value })}
-                    placeholder="First Name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dean-lastName">Last Name *</Label>
-                  <Input
-                    id="dean-lastName"
-                    value={form.deanLastName}
-                    onChange={(e) => setForm({ ...form, deanLastName: e.target.value })}
-                    placeholder="Last Name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dean-email">Email *</Label>
-                  <Input
-                    id="dean-email"
-                    type="email"
-                    value={form.deanEmail}
-                    onChange={(e) => setForm({ ...form, deanEmail: e.target.value })}
-                    placeholder="dean@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="dean-password">Password *</Label>
-                  <Input
-                    id="dean-password"
-                    type="password"
-                    value={form.deanPassword}
-                    onChange={(e) => setForm({ ...form, deanPassword: e.target.value })}
-                    placeholder="Enter password"
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2 pt-2 border-t mt-2">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="create-hod"
-                  checked={form.createHod}
-                  onCheckedChange={(checked) =>
-                    setForm({ ...form, createHod: checked === true })
-                  }
-                />
-                <Label htmlFor="create-hod">Create HOD Account for this Department</Label>
-              </div>
-            </div>
-
-            {form.createHod && (
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div className="space-y-2">
-                  <Label htmlFor="hod-firstName">First Name *</Label>
-                  <Input
-                    id="hod-firstName"
-                    value={form.hodFirstName}
-                    onChange={(e) => setForm({ ...form, hodFirstName: e.target.value })}
-                    placeholder="First Name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hod-lastName">Last Name *</Label>
-                  <Input
-                    id="hod-lastName"
-                    value={form.hodLastName}
-                    onChange={(e) => setForm({ ...form, hodLastName: e.target.value })}
-                    placeholder="Last Name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hod-email">Email *</Label>
-                  <Input
-                    id="hod-email"
-                    type="email"
-                    value={form.hodEmail}
-                    onChange={(e) => setForm({ ...form, hodEmail: e.target.value })}
-                    placeholder="hod@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hod-password">Password *</Label>
-                  <Input
-                    id="hod-password"
-                    type="password"
-                    value={form.hodPassword}
-                    onChange={(e) => setForm({ ...form, hodPassword: e.target.value })}
-                    placeholder="Enter password"
-                  />
-                </div>
-              </div>
-            )}
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>

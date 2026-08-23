@@ -55,15 +55,15 @@ export const institutions = pgTable("institutions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Departments are a global catalog (Anatomy, Physiology, ...), not owned by
+// any one institution — every MBBS college uses the same set of department
+// names. Institution + Department only come together on a person's account
+// (see users.institutionId below), since each institution has its own
+// Dean/HOD/faculty for "its" Anatomy department, not the department itself.
 export const departments = pgTable("departments", {
   id: uuid("id").primaryKey().defaultRandom(),
-  institutionId: uuid("institution_id")
-    .notNull()
-    .references(() => institutions.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
+  name: text("name").notNull().unique(),
   description: text("description"),
-  deanId: uuid("dean_id").references((): any => users.id, { onDelete: "set null" }),
-  hodId: uuid("hod_id").references((): any => users.id, { onDelete: "set null" }),
   status: userStatusEnum("status").default("ACTIVE"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -77,6 +77,9 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: userRoleEnum("role").notNull(),
   status: userStatusEnum("status").default("ACTIVE").notNull(),
+  institutionId: uuid("institution_id").references(() => institutions.id, {
+    onDelete: "set null",
+  }),
   departmentId: uuid("department_id").references(() => departments.id, {
     onDelete: "set null",
   }),

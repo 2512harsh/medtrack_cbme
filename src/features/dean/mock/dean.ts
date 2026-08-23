@@ -2,10 +2,8 @@ import type { Faculty, Student, StudentAllocation, CompetencyAssignment, Departm
 
 export const mockDepartment: Department = {
   id: "dept-1",
-  institutionId: "inst-1",
   name: "Anatomy",
   description: "Department of Anatomy",
-  deanId: "user-dean-1",
   createdAt: "2024-01-01T00:00:00Z",
   updatedAt: "2024-01-01T00:00:00Z",
 };
