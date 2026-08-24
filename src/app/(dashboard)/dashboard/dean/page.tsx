@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, GraduationCap, ClipboardCheck, TrendingUp, AlertTriangle, Activity, UserCheck, BookOpen, FileBarChart, Building2 } from "lucide-react";
+import { Users, GraduationCap, ClipboardCheck, UserCheck, BookOpen, FileBarChart, Building2 } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import {
@@ -10,6 +10,7 @@ import {
   getStudents,
   getDepartmentProgress,
   getDepartmentWiseProgress,
+  getAssessments,
 } from "@/features/dean/services/dean";
 import {
   DashboardGrid,
@@ -18,12 +19,10 @@ import {
   MetricCard,
   SectionCard,
   ProgressWidget,
-  ActivityTimeline,
   QuickActions,
-  EmptyWidget,
   DashboardSkeleton,
 } from "@/components/dashboard";
-import type { ActivityItem, QuickActionItem } from "@/components/dashboard";
+import type { QuickActionItem } from "@/components/dashboard";
 
 interface DashboardData {
   departmentCount: number;
@@ -37,7 +36,6 @@ interface DashboardData {
     subjects: { subject: string; completed: number; total: number; color?: "blue" | "green" | "purple" | "orange" | "primary" }[];
     distribution: { label: string; value: number; className: string }[];
   };
-  activity: ActivityItem[];
 }
 
 const progressColors: ("blue" | "green" | "purple" | "orange" | "primary")[] = [
@@ -72,11 +70,14 @@ export default function DeanDashboard() {
       // Not filtered by departmentId: faculty/students now come from the real DB, and
       // the mock logged-in user's departmentId doesn't match real department ids.
       // Departments are also global now (no institution scoping), so no institution filter either.
-      const [allDepartments, faculty, students] = await Promise.all([
+      const [allDepartments, faculty, students, assessments] = await Promise.all([
         getDepartments(),
         getFaculty(),
         getStudents(),
+        getAssessments(),
       ]);
+
+      const pendingAssessments = assessments.filter((a) => a.currentStatus !== "Completed").length;
 
       const progressRows = isDean
         ? (await getDepartmentWiseProgress()).map((r) => ({ label: r.department, completed: r.completed, total: r.total }))
@@ -98,7 +99,7 @@ export default function DeanDashboard() {
         stats: {
           totalFaculty: String(faculty.length),
           totalStudents: String(students.length),
-          pendingAssessments: "23",
+          pendingAssessments: String(pendingAssessments),
         },
         progress: {
           overall,
@@ -115,12 +116,6 @@ export default function DeanDashboard() {
             { label: "Awaiting Review", value: awaitingReview, className: "bg-purple-500" },
           ],
         },
-        activity: [
-          { id: "h1", title: "Department progress updated - 42 competencies completed this week", timestamp: "Aug 13, 2026", icon: <TrendingUp className="h-4 w-4" />, status: "Progress", statusVariant: "success" },
-          { id: "h2", title: "Dr. Sunita Devi scheduled a remediation session for PY1.1", timestamp: "Aug 14, 2026", icon: <AlertTriangle className="h-4 w-4" />, status: "Remediation", statusVariant: "warning" },
-          { id: "h3", title: "Dr. Priya Nair went on leave", timestamp: "Aug 12, 2026", icon: <Activity className="h-4 w-4" />, status: "Faculty", statusVariant: "info" },
-          { id: "h4", title: "5 faculty assessments awaiting review across the department", timestamp: "Aug 12, 2026", icon: <ClipboardCheck className="h-4 w-4" />, status: "Pending", statusVariant: "purple" },
-        ],
       });
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load dashboard data"));
@@ -163,9 +158,9 @@ export default function DeanDashboard() {
         {user?.role !== "HOD" && (
           <MetricCard label="Departments" value={String(data.departmentCount)} icon={<Building2 className="h-5 w-5" />} color="primary" />
         )}
-        <MetricCard label="Total Faculty" value={data.stats.totalFaculty} icon={<Users className="h-5 w-5" />} color="blue" trend="+1 this month" trendUp />
-        <MetricCard label="Total Students" value={data.stats.totalStudents} icon={<GraduationCap className="h-5 w-5" />} color="green" trend="+24 this batch" trendUp />
-        <MetricCard label="Pending Assessments" value={data.stats.pendingAssessments} icon={<ClipboardCheck className="h-5 w-5" />} color="orange" sub="6 urgent" />
+        <MetricCard label="Total Faculty" value={data.stats.totalFaculty} icon={<Users className="h-5 w-5" />} color="blue" />
+        <MetricCard label="Total Students" value={data.stats.totalStudents} icon={<GraduationCap className="h-5 w-5" />} color="green" />
+        <MetricCard label="Pending Assessments" value={data.stats.pendingAssessments} icon={<ClipboardCheck className="h-5 w-5" />} color="orange" />
       </div>
 
       <DashboardGrid>

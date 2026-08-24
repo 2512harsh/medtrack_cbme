@@ -33,13 +33,6 @@ const columns: ColumnDef<AppTableFeatures, TopicRow>[] = [
     header: "Subject",
   },
   {
-    accessorKey: "displayOrder",
-    header: "Order",
-    cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">{row.getValue("displayOrder")}</span>
-    ),
-  },
-  {
     accessorKey: "competencyCount",
     header: "Competencies",
     cell: ({ row }) => (
@@ -97,7 +90,7 @@ export default function TopicsPage() {
         onRetry={fetchData}
         emptyTitle="No topics found"
         emptyDescription="No topics have been added to the curriculum yet."
-        loadingColumns={4}
+        loadingColumns={3}
       >
         {(topics) => (
           <DataTable

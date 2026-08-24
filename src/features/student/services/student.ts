@@ -135,28 +135,27 @@ export interface SubmitStudentResponsePayload {
   answers: StudentResponseAnswer[];
 }
 
-// No table exists yet for student answers to question templates — kept as an
-// in-memory store until that's added to the schema.
-const mockStudentResponses = new Map<string, SubmitStudentResponsePayload>();
-
-export function getStudentResponse(
-  questionTemplateId: string
+export async function getStudentResponse(
+  assessmentId: string
 ): Promise<SubmitStudentResponsePayload | undefined> {
-  return Promise.resolve(mockStudentResponses.get(questionTemplateId));
+  const res = await fetch(`/api/assessments/${assessmentId}/response`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load response for assessment ${assessmentId}`);
+  return res.json();
 }
 
 export function saveStudentResponse(
+  assessmentId: string,
   payload: SubmitStudentResponsePayload
 ): Promise<SubmitStudentResponsePayload> {
-  mockStudentResponses.set(payload.questionTemplateId, payload);
-  return Promise.resolve(payload);
+  return apiSend<SubmitStudentResponsePayload>(`/api/assessments/${assessmentId}/response`, "POST", payload);
 }
 
 export async function submitStudentResponse(
   assessmentId: string,
   payload: SubmitStudentResponsePayload
 ): Promise<Assessment> {
-  mockStudentResponses.set(payload.questionTemplateId, payload);
+  await saveStudentResponse(assessmentId, payload);
   return apiSend<Assessment>(`/api/assessments/${assessmentId}`, "PATCH", {
     currentStatus: "Submitted" satisfies AssessmentStatus,
   });

@@ -146,3 +146,18 @@ export async function createQuestionTemplate(data: {
 }): Promise<QuestionTemplate> {
   return apiSend<QuestionTemplate>("/api/curriculum/templates", "POST", data);
 }
+
+export async function getQuestionTemplateById(id: string): Promise<QuestionTemplate> {
+  return apiGet<QuestionTemplate>(`/api/curriculum/templates/${id}`);
+}
+
+export async function updateQuestionTemplate(
+  id: string,
+  data: {
+    title?: string;
+    instructions?: string;
+    questions?: { id?: string; questionText: string; required: boolean }[];
+  }
+): Promise<QuestionTemplate> {
+  return apiSend<QuestionTemplate>(`/api/curriculum/templates/${id}`, "PATCH", data);
+}

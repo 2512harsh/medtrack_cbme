@@ -265,6 +265,28 @@ export const assessmentAttempts = pgTable("assessment_attempts", {
   status: assessmentStatusEnum("status").notNull(),
 });
 
+export const studentResponses = pgTable("student_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  assessmentId: uuid("assessment_id")
+    .notNull()
+    .references(() => assessments.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id")
+    .notNull()
+    .references(() => questionTemplates.id, { onDelete: "cascade" }),
+  submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const studentResponseAnswers = pgTable("student_response_answers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  responseId: uuid("response_id")
+    .notNull()
+    .references(() => studentResponses.id, { onDelete: "cascade" }),
+  questionId: uuid("question_id")
+    .notNull()
+    .references(() => questions.id, { onDelete: "cascade" }),
+  answerText: text("answer_text").notNull().default(""),
+});
+
 // ---------- notifications & audit ----------
 
 export const notifications = pgTable("notifications", {

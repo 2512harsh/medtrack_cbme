@@ -119,7 +119,11 @@ const navigation = [
     title: "Competency Assignment",
     href: "/dean/competency-assignment",
     icon: UserCheck,
-    roles: ["Dean", "HOD"],
+    roles: ["Dean", "HOD", "Faculty"],
+    children: [
+      { title: "Assignments", href: "/dean/competency-assignment", roles: ["Dean", "HOD", "Faculty"] },
+      { title: "Question Templates", href: "/dean/templates", roles: ["Dean", "HOD"] },
+    ],
   },
   {
     title: "Notifications",

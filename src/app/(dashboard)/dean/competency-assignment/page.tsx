@@ -4,8 +4,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { getCompetencyAssignments, assignCompetency } from "@/features/dean/services/dean";
+import { Plus, Pencil } from "lucide-react";
+import { getCompetencyAssignments, assignCompetency, updateCompetencyAssignment } from "@/features/dean/services/dean";
 import {
   CompetencyAssignmentDialog,
   type CompetencyAssignmentFormValues,
@@ -25,11 +25,12 @@ type CompAssignmentRow = {
 };
 
 export default function CompetencyAssignmentPage() {
-  const [data, setData] = useState<CompAssignmentRow[] | undefined>(undefined);
+  const [assignments, setAssignments] = useState<CompetencyAssignment[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<CompetencyAssignment | null>(null);
 
   const rowsFrom = (assignments: CompetencyAssignment[]): CompAssignmentRow[] =>
     assignments.map((a) => ({
@@ -43,14 +44,16 @@ export default function CompetencyAssignmentPage() {
       assignedDate: a.assignedDate,
     }));
 
+  const data = assignments ? rowsFrom(assignments) : undefined;
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
       // Not filtered by departmentId: the mock logged-in user's departmentId
       // ("dept-1") doesn't match real department ids now that this is DB-backed.
-      const assignments = await getCompetencyAssignments();
-      setData(rowsFrom(assignments));
+      const result = await getCompetencyAssignments();
+      setAssignments(result);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load competency assignments"));
     } finally {
@@ -63,23 +66,43 @@ export default function CompetencyAssignmentPage() {
   }, [fetchData]);
 
   const refreshList = async () => {
-    const assignments = await getCompetencyAssignments();
-    setData(rowsFrom(assignments));
+    const result = await getCompetencyAssignments();
+    setAssignments(result);
+  };
+
+  const openCreateDialog = () => {
+    setEditingAssignment(null);
+    setDialogOpen(true);
+  };
+
+  const openEditDialog = (assignment: CompetencyAssignment) => {
+    setEditingAssignment(assignment);
+    setDialogOpen(true);
   };
 
   const handleSave = async (values: CompetencyAssignmentFormValues) => {
     setIsSaving(true);
     try {
-      await assignCompetency({
-        facultyId: values.facultyId,
-        competencyId: values.competencyId,
-        batch: values.batch,
-      });
-      toast.success("Competency assigned to faculty");
+      if (editingAssignment) {
+        await updateCompetencyAssignment(editingAssignment.id, {
+          facultyId: values.facultyId,
+          competencyId: values.competencyId,
+          batch: values.batch,
+        });
+        toast.success("Competency assignment updated");
+      } else {
+        await assignCompetency({
+          facultyId: values.facultyId,
+          competencyId: values.competencyId,
+          batch: values.batch,
+        });
+        toast.success("Competency assigned to faculty");
+      }
       setDialogOpen(false);
+      setEditingAssignment(null);
       await refreshList();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to assign competency");
+      toast.error(err instanceof Error ? err.message : "Failed to save competency assignment");
     } finally {
       setIsSaving(false);
     }
@@ -105,6 +128,24 @@ export default function CompetencyAssignmentPage() {
         </span>
       ),
     },
+    {
+      id: "actions",
+      header: "Actions",
+      cell: ({ row }) => {
+        const assignment = assignments?.find((a) => a.id === row.original.id);
+        return (
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Edit assignment"
+            onClick={() => assignment && openEditDialog(assignment)}
+            disabled={!assignment}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        );
+      },
+    },
   ];
 
   return (
@@ -113,7 +154,7 @@ export default function CompetencyAssignmentPage() {
         title="Competency Assignment"
         description="Assign competency templates to faculty"
         actions={
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
             New Assignment
           </Button>
@@ -129,16 +170,20 @@ export default function CompetencyAssignmentPage() {
         emptyDescription="No competencies have been assigned to faculty yet."
         loadingColumns={6}
       >
-        {(assignments) => (
-          <DataTable columns={columns} data={assignments} searchPlaceholder="Search assignments..." />
+        {(rows) => (
+          <DataTable columns={columns} data={rows} searchPlaceholder="Search assignments..." />
         )}
       </AsyncContent>
 
       <CompetencyAssignmentDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(nextOpen) => {
+          setDialogOpen(nextOpen);
+          if (!nextOpen) setEditingAssignment(null);
+        }}
         isSaving={isSaving}
         onSave={handleSave}
+        assignment={editingAssignment}
       />
     </div>
   );

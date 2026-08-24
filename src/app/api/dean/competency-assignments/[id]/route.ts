@@ -3,13 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { competencyAssignments, faculty, users, competencies, subtopics, topics, subjects } from "@/db/schema";
 
-export async function GET(_request: NextRequest, ctx: RouteContext<"/api/dean/competency-assignments/[id]">) {
-  const { id } = await ctx.params;
-  const [row] = await db.select().from(competencyAssignments).where(eq(competencyAssignments.id, id));
-  if (!row) {
-    return NextResponse.json({ message: "Competency assignment not found" }, { status: 404 });
-  }
-
+async function embedAssignment(row: typeof competencyAssignments.$inferSelect) {
   const [facultyRow] = await db
     .select()
     .from(faculty)
@@ -27,7 +21,7 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/dean/co
     subjectName = subject?.name;
   }
 
-  return NextResponse.json({
+  return {
     ...row,
     faculty: facultyRow && {
       id: facultyRow.faculty.id,
@@ -49,5 +43,46 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/dean/co
       },
     },
     competency: competency && { ...competency, subjectName },
-  });
+  };
+}
+
+export async function GET(_request: NextRequest, ctx: RouteContext<"/api/dean/competency-assignments/[id]">) {
+  const { id } = await ctx.params;
+  const [row] = await db.select().from(competencyAssignments).where(eq(competencyAssignments.id, id));
+  if (!row) {
+    return NextResponse.json({ message: "Competency assignment not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(await embedAssignment(row));
+}
+
+export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/competency-assignments/[id]">) {
+  const { id } = await ctx.params;
+  const body = await request.json();
+  const { facultyId, competencyId, batch } = body as {
+    facultyId?: string;
+    competencyId?: string;
+    batch?: string;
+  };
+
+  const updates: Partial<typeof competencyAssignments.$inferInsert> = {};
+  if (facultyId) updates.facultyId = facultyId;
+  if (competencyId) updates.competencyId = competencyId;
+  if (batch) updates.batch = batch;
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ message: "No fields to update" }, { status: 400 });
+  }
+
+  const [row] = await db
+    .update(competencyAssignments)
+    .set(updates)
+    .where(eq(competencyAssignments.id, id))
+    .returning();
+
+  if (!row) {
+    return NextResponse.json({ message: "Competency assignment not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(await embedAssignment(row));
 }
