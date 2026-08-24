@@ -146,6 +146,7 @@ export interface CompetencyAssignment {
   faculty?: Faculty;
   competency?: Competency;
   pendingCount?: number;
+  totalStudents?: number;
 }
 
 export type AssessmentStatus =

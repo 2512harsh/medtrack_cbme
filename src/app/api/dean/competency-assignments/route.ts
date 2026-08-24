@@ -90,6 +90,7 @@ async function embedAssignments(rows: (typeof competencyAssignments.$inferSelect
       faculty: facultyById.get(r.facultyId),
       competency: competencyById.get(r.competencyId),
       pendingCount: Math.max(totalStudents - completed, 0),
+      totalStudents,
     };
   });
 }

@@ -11,6 +11,7 @@ import {
   getOrCreateMyAssessment,
   submitStudentResponse,
   saveStudentResponse,
+  getStudentResponse,
 } from "@/features/student/services/student";
 import { getQuestionTemplates } from "@/features/curriculum/services/curriculum";
 import { PageLoadingSkeleton } from "@/components/shared/LoadingSkeleton";
@@ -62,7 +63,8 @@ export default function StudentResponseFormPage() {
       }
       setAssignment(assignmentData);
       const existing = assessments.find((a) => a.competencyAssignmentId === assignmentData.id);
-      setAssessment(existing ?? (await getOrCreateMyAssessment(assignmentData.id)));
+      const currentAssessment = existing ?? (await getOrCreateMyAssessment(assignmentData.id));
+      setAssessment(currentAssessment);
 
       const competencyId = assignmentData.competencyId;
       const templates = await getQuestionTemplates(competencyId);
@@ -72,6 +74,10 @@ export default function StudentResponseFormPage() {
         const initial: DraftState = {};
         template.questions.forEach((q) => {
           initial[q.id] = "";
+        });
+        const savedResponse = await getStudentResponse(currentAssessment.id);
+        savedResponse?.answers.forEach((a) => {
+          initial[a.questionId] = a.answerText;
         });
         setAnswers(initial);
       }
@@ -127,7 +133,7 @@ export default function StudentResponseFormPage() {
   };
 
   const handleSaveDraft = async () => {
-    if (!template) {
+    if (!template || !assessment) {
       toast.error("Unable to save draft");
       return;
     }
@@ -140,7 +146,7 @@ export default function StudentResponseFormPage() {
           answerText: answers[q.id] ?? "",
         })),
       };
-      await saveStudentResponse(payload);
+      await saveStudentResponse(assessment.id, payload);
       setValidationErrors([]);
       toast.success("Draft saved locally");
     } catch (err) {

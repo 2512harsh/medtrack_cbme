@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageLoadingSkeleton } from "@/components/shared/LoadingSkeleton";
@@ -11,40 +12,36 @@ import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { FileText, Users as UsersIcon, CheckCircle, Loader2 } from "lucide-react";
+import { FileText, Users as UsersIcon, CheckCircle, Loader2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import {
   getAssignedStudents,
+  getAssignedCompetencies,
+  getOrCreateAssessment,
+  submitAssessment,
+  getAssessmentForStudentAndAssignment,
+  getAssessmentResponse,
+  type StudentResponseAnswer,
 } from "@/features/faculty/services/faculty";
-import { useAuth } from "@/features/authentication/hooks/useAuth";
-import type { Student } from "@/types";
+import { getQuestionTemplates } from "@/features/curriculum/services/curriculum";
+import type { Student, CompetencyAssignment, QuestionTemplate, AssessmentDecision } from "@/types";
 
-// Mock Data for Hierarchy based on CBME spreadsheet
-const mockSubjects = [
-  { id: "sub-1", name: "General Anatomy" },
-  { id: "sub-2", name: "Upper Limb" },
-  { id: "sub-3", name: "Lower Limb" },
-];
+function assignmentLabel(a: CompetencyAssignment): string {
+  const competency = a.competency;
+  if (!competency) return "Unknown competency";
+  const base = `${competency.competencyCode} — ${competency.competencyTitle}`;
+  return competency.competencyLevel ? `${base} (Level: ${competency.competencyLevel})` : base;
+}
 
-const mockTopics = [
-  { id: "top-1", subjectId: "sub-1", name: "Topic 1: Anatomical terminology" },
-  { id: "top-2", subjectId: "sub-1", name: "Topic 2: General features of bones & Joints" },
-  { id: "top-3", subjectId: "sub-2", name: "Topic 1: Pectoral Region" },
-];
-
-const mockCompetencies = [
-  { id: "comp-1", topicId: "top-1", code: "AN1.1", title: "Describe & Demonstrate normal anatomical position, various planes, relation..." },
-  { id: "comp-2", topicId: "top-1", code: "AN1.2", title: "Describe composition of bone and bone marrow" },
-  { id: "comp-3", topicId: "top-2", code: "AN2.1", title: "Describe parts, types, peculiarities of each type, blood and nerve supply of bones." },
-  { id: "comp-4", topicId: "top-2", code: "AN2.2", title: "Describe the laws of ossification, epiphysis, its various types and their importance" },
-  { id: "comp-5", topicId: "top-3", code: "AN9.1", title: "Describe attachments, nerve supply and action of pectoralis major and minor" },
-  { id: "comp-6", topicId: "top-3", code: "AN9.2", title: "Describe breast - location, blood supply, lymphatic drainage" },
-];
+const ratingToDecision: Record<string, AssessmentDecision> = {
+  M: "Meets Expectations",
+  E: "Exceeds Expectations",
+  N: "Needs Remediation",
+};
 
 export default function AssessmentFormPage() {
-  const { user } = useAuth();
-  
   const [students, setStudents] = useState<Student[]>([]);
+  const [assignedCompetencies, setAssignedCompetencies] = useState<CompetencyAssignment[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Table State
@@ -55,19 +52,25 @@ export default function AssessmentFormPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
-  const [selectedSubject, setSelectedSubject] = useState("");
-  const [selectedTopic, setSelectedTopic] = useState("");
-  const [selectedCompetency, setSelectedCompetency] = useState("");
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState("");
+  const [templates, setTemplates] = useState<QuestionTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [studentResponse, setStudentResponse] = useState<
+    { templateId: string; answers: StudentResponseAnswer[] } | undefined
+  >(undefined);
+  const [responseLoading, setResponseLoading] = useState(false);
   const [attempt, setAttempt] = useState("First Attempt");
   const [rating, setRating] = useState("");
-  const [decision, setDecision] = useState("");
+  const [decision, setDecision] = useState("Completed");
   const [remarks, setRemarks] = useState("");
+  const [facultySignature, setFacultySignature] = useState("");
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const s = await getAssignedStudents();
+      const [s, assignments] = await Promise.all([getAssignedStudents(), getAssignedCompetencies()]);
       setStudents(s);
+      setAssignedCompetencies(assignments);
     } finally {
       setLoading(false);
     }
@@ -76,6 +79,83 @@ export default function AssessmentFormPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const selectedStudents = useMemo(
+    () => students.filter((s) => selectedStudentIds.has(s.id)),
+    [students, selectedStudentIds]
+  );
+
+  // Only show competencies actually assigned (via Competency Assignment) for the
+  // batch(es) the selected student(s) belong to - not the whole curriculum tree.
+  const availableAssignments = useMemo(() => {
+    const batches = new Set(selectedStudents.map((s) => s.batch));
+    return assignedCompetencies.filter((a) => batches.has(a.batch));
+  }, [assignedCompetencies, selectedStudents]);
+
+  const selectedAssignment = availableAssignments.find((a) => a.id === selectedAssignmentId);
+
+  useEffect(() => {
+    if (!selectedAssignment) {
+      setTemplates([]);
+      return;
+    }
+    setTemplatesLoading(true);
+    getQuestionTemplates(selectedAssignment.competencyId)
+      .then(setTemplates)
+      .finally(() => setTemplatesLoading(false));
+  }, [selectedAssignment?.competencyId]);
+
+  // Only meaningful for a single selected student - a response belongs to one
+  // student's own assessment, not a batch of them.
+  const responseStudentId = selectedStudents.length === 1 ? selectedStudents[0].id : undefined;
+
+  useEffect(() => {
+    if (!selectedAssignment || !responseStudentId) {
+      setStudentResponse(undefined);
+      return;
+    }
+    let cancelled = false;
+    setResponseLoading(true);
+    getAssessmentForStudentAndAssignment(responseStudentId, selectedAssignment.id)
+      .then((assessment) => (assessment ? getAssessmentResponse(assessment.id) : undefined))
+      .then((response) => {
+        if (!cancelled) setStudentResponse(response);
+      })
+      .finally(() => {
+        if (!cancelled) setResponseLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAssignment?.id, responseStudentId]);
+
+  // First Attempt only ever ends in a completed decision (Exceeds/Meets
+  // Expectations); Repeat always means the student still needs remediation.
+  const handleAttemptChange = (value: string | null) => {
+    const next = value ?? "";
+    setAttempt(next);
+    if (next === "First Attempt") {
+      setRating("");
+      setDecision("Completed");
+    } else if (next === "Repeat") {
+      setRating("N");
+      setDecision("Not Completed");
+    } else {
+      setRating("");
+      setDecision("");
+    }
+  };
+
+  const resetForm = () => {
+    setSelectedAssignmentId("");
+    setTemplates([]);
+    setStudentResponse(undefined);
+    setAttempt("First Attempt");
+    setRating("");
+    setDecision("Completed");
+    setRemarks("");
+    setFacultySignature("");
+  };
 
   const toggleStudentSelection = (studentId: string) => {
     const next = new Set(selectedStudentIds);
@@ -152,39 +232,43 @@ export default function AssessmentFormPage() {
   ];
 
   const handleSubmit = async () => {
-    if (!selectedSubject || !selectedTopic || !selectedCompetency || !attempt || !rating || !decision) {
+    if (!selectedAssignmentId || !attempt || !rating || !decision || !facultySignature.trim()) {
       toast.error("Please complete all required fields");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Mock submission for all selected students
-      for (const studentId of Array.from(selectedStudentIds)) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
+      const studentIds = Array.from(selectedStudentIds);
+      const results = await Promise.allSettled(
+        studentIds.map(async (studentId) => {
+          const assessment = await getOrCreateAssessment(studentId, selectedAssignmentId);
+          await submitAssessment({
+            assessmentId: assessment.id,
+            rating,
+            decision: ratingToDecision[rating],
+            remarks: remarks.trim(),
+            facultySignature: facultySignature.trim(),
+          });
+        })
+      );
+
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      if (failedCount > 0) {
+        toast.error(`${failedCount} of ${studentIds.length} submission(s) failed. Please retry those students.`);
+      } else {
+        toast.success(`Successfully submitted assessments for ${studentIds.length} student(s)`);
       }
-      toast.success(`Successfully submitted assessments for ${selectedStudentIds.size} student(s)`);
+
       setIsModalOpen(false);
-      
-      // Reset form
       setSelectedStudentIds(new Set());
-      setSelectedSubject("");
-      setSelectedTopic("");
-      setSelectedCompetency("");
-      setAttempt("First Attempt");
-      setRating("");
-      setDecision("");
-      setRemarks("");
-      
-    } catch (err) {
+      resetForm();
+    } catch {
       toast.error("An error occurred while submitting assessments");
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const filteredTopics = mockTopics.filter((t) => t.subjectId === selectedSubject);
-  const filteredCompetencies = mockCompetencies.filter((c) => c.topicId === selectedTopic);
 
   if (loading) {
     return (
@@ -231,7 +315,14 @@ export default function AssessmentFormPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isModalOpen} onOpenChange={(open) => !isSubmitting && setIsModalOpen(open)}>
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          if (isSubmitting) return;
+          setIsModalOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Evaluate Students</DialogTitle>
@@ -239,7 +330,7 @@ export default function AssessmentFormPage() {
               Fill out the assessment details below for the selected student(s).
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-4 space-y-6">
             <div className="space-y-3">
               <h3 className="text-sm font-semibold flex items-center gap-2 border-b pb-2">
@@ -247,87 +338,114 @@ export default function AssessmentFormPage() {
                 Selected Students ({selectedStudentIds.size})
               </h3>
               <div className="max-h-32 overflow-y-auto space-y-2 border rounded-md p-3 bg-muted/20">
-                {students
-                  .filter((s) => selectedStudentIds.has(s.id))
-                  .map((s) => (
-                    <div key={s.id} className="flex justify-between items-center text-sm">
-                      <span className="font-medium">
-                        {s.user ? `${s.user.firstName} ${s.user.lastName}` : "Unknown"}
-                      </span>
-                      <span className="text-muted-foreground">{s.rollNumber}</span>
-                    </div>
-                  ))}
+                {selectedStudents.map((s) => (
+                  <div key={s.id} className="flex justify-between items-center text-sm">
+                    <span className="font-medium">
+                      {s.user ? `${s.user.firstName} ${s.user.lastName}` : "Unknown"}
+                    </span>
+                    <span className="text-muted-foreground">{s.rollNumber}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className="space-y-4 border-t pt-4">
               <h3 className="text-sm font-semibold">Competency Selection</h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Topic *</Label>
-                  <Select value={selectedSubject} onValueChange={(v) => { setSelectedSubject(v ?? ""); setSelectedTopic(""); setSelectedCompetency(""); }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a subject">
-                        {mockSubjects.find((s) => s.id === selectedSubject)?.name}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockSubjects.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Sub-Topic *</Label>
-                  <Select value={selectedTopic} onValueChange={(v) => { setSelectedTopic(v ?? ""); setSelectedCompetency(""); }} disabled={!selectedSubject}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a topic">
-                        {mockTopics.find((t) => t.id === selectedTopic)?.name}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredTopics.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
               <div className="space-y-2">
-                <Label>Competency *</Label>
-                <Select value={selectedCompetency} onValueChange={(v) => setSelectedCompetency(v ?? "")} disabled={!selectedTopic}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a competency">
-                      {selectedCompetency ? (
-                        <span className="flex items-center gap-2 overflow-hidden">
-                          <span className="font-medium shrink-0">
-                            {mockCompetencies.find((c) => c.id === selectedCompetency)?.code}
-                          </span>
-                          <span className="truncate">
-                            {mockCompetencies.find((c) => c.id === selectedCompetency)?.title}
-                          </span>
-                        </span>
-                      ) : null}
-                    </SelectValue>
+                <Label htmlFor="assignment">Competency Assignment *</Label>
+                <Select
+                  items={availableAssignments.map((a) => ({ value: a.id, label: assignmentLabel(a) }))}
+                  value={selectedAssignmentId}
+                  onValueChange={(v) => setSelectedAssignmentId(v ?? "")}
+                  disabled={availableAssignments.length === 0}
+                >
+                  <SelectTrigger id="assignment" className="w-full">
+                    <SelectValue
+                      placeholder={
+                        availableAssignments.length === 0
+                          ? "No competencies assigned for this batch"
+                          : "Select a competency"
+                      }
+                    />
                   </SelectTrigger>
-                  <SelectContent>
-                    {filteredCompetencies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        <span className="font-medium mr-2">{c.code}</span>
-                        <span className="truncate">{c.title}</span>
+                  <SelectContent className="max-w-md">
+                    {availableAssignments.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {assignmentLabel(a)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedCompetency && (
+                {selectedAssignment?.competency?.competencyDescription && (
                   <p className="text-sm text-muted-foreground whitespace-normal break-words">
-                    {mockCompetencies.find((c) => c.id === selectedCompetency)?.title}
+                    {selectedAssignment.competency.competencyDescription}
                   </p>
                 )}
               </div>
+
+              {selectedAssignmentId && (
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <h4 className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Question Template &amp; Student Response
+                  </h4>
+                  {!responseStudentId && (
+                    <p className="text-xs text-muted-foreground italic">
+                      Select a single student to view their submitted response.
+                    </p>
+                  )}
+                  {templatesLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading template...</p>
+                  ) : templates.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No question template for this competency yet.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {templates.map((t) => {
+                        const responseForTemplate =
+                          studentResponse?.templateId === t.id ? studentResponse : undefined;
+                        return (
+                          <div key={t.id} className="space-y-2">
+                            <p className="text-sm font-medium">{t.title}</p>
+                            {t.instructions && (
+                              <p className="text-xs text-muted-foreground">{t.instructions}</p>
+                            )}
+                            <div className="space-y-2.5">
+                              {(t.questions ?? []).map((q, index) => {
+                                const answer = responseForTemplate?.answers.find(
+                                  (a) => a.questionId === q.id
+                                )?.answerText;
+                                return (
+                                  <div key={q.id} className="text-sm">
+                                    <p>
+                                      <span className="text-muted-foreground">{index + 1}.</span> {q.questionText}
+                                      {q.required && (
+                                        <span className="ml-1 text-xs text-muted-foreground">(required)</span>
+                                      )}
+                                    </p>
+                                    <p className="mt-0.5 pl-4 text-muted-foreground">
+                                      {responseStudentId ? (
+                                        responseLoading ? (
+                                          "Loading response..."
+                                        ) : answer ? (
+                                          <span className="text-foreground">{answer}</span>
+                                        ) : (
+                                          <span className="italic">No answer provided</span>
+                                        )
+                                      ) : (
+                                        <span className="italic">—</span>
+                                      )}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-4 border-t pt-4">
@@ -335,7 +453,7 @@ export default function AssessmentFormPage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Attempt *</Label>
-                  <Select value={attempt} onValueChange={(v) => setAttempt(v ?? "")} disabled={!selectedCompetency}>
+                  <Select value={attempt} onValueChange={handleAttemptChange} disabled={!selectedAssignmentId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select attempt type">
                         {attempt}
@@ -347,37 +465,41 @@ export default function AssessmentFormPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label>Rating *</Label>
-                  <Select value={rating} onValueChange={(v) => setRating(v ?? "")} disabled={!selectedCompetency || !attempt}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select rating">
-                        {rating === "M" ? "Meets Expectations (M)" : rating === "E" ? "Exceeds Expectations (E)" : rating === "N" ? "Needs Remediation (N)" : ""}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="M">Meets Expectations (M)</SelectItem>
-                      <SelectItem value="E">Exceeds Expectations (E)</SelectItem>
-                      <SelectItem value="N">Needs Remediation (N)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {attempt === "Repeat" ? (
+                    <div className="flex h-8 items-center rounded-lg border border-input bg-muted/40 px-2.5 text-sm text-muted-foreground">
+                      Needs Remediation (N)
+                    </div>
+                  ) : (
+                    <Select
+                      value={rating}
+                      onValueChange={(v) => setRating(v ?? "")}
+                      disabled={!selectedAssignmentId || !attempt}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select rating">
+                          {rating === "M" ? "Meets Expectations (M)" : rating === "E" ? "Exceeds Expectations (E)" : ""}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="E">Exceeds Expectations (E)</SelectItem>
+                        <SelectItem value="M">Meets Expectations (M)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label>Decision *</Label>
-                <Select value={decision} onValueChange={(v) => setDecision(v ?? "")} disabled={!rating}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select decision">
-                      {decision || undefined}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Completed">Completed</SelectItem>
-                    <SelectItem value="Not Completed">Not Completed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="flex h-8 items-center rounded-lg border border-input bg-muted/40 px-2.5 text-sm text-muted-foreground">
+                  {decision || "—"}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Set automatically from the attempt type — Completed for a First Attempt, Not Completed for a Repeat.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -390,10 +512,21 @@ export default function AssessmentFormPage() {
                   disabled={!rating}
                 />
               </div>
-              
+
               <div className="text-xs text-muted-foreground pt-2">
                 Created At: {new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
+            </div>
+
+            <div className="space-y-2 border-t pt-4">
+              <Label htmlFor="facultySignature">Digital Signature *</Label>
+              <Input
+                id="facultySignature"
+                placeholder="Enter your full name"
+                value={facultySignature}
+                onChange={(e) => setFacultySignature(e.target.value)}
+                disabled={!rating}
+              />
             </div>
           </div>
 

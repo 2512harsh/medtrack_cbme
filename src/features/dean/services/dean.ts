@@ -1,6 +1,4 @@
-import type { Faculty, Student, StudentAllocation, CompetencyAssignment, Department } from "@/types";
-import { mockSubjects } from "@/features/curriculum/mock/curriculum";
-import { mockDepartments as legacyMockDepartments } from "@/features/super-admin/mock/superAdmin";
+import type { Faculty, Student, StudentAllocation, CompetencyAssignment, Department, Assessment } from "@/types";
 import type { HodAccount } from "@/features/super-admin/mock/superAdmin";
 
 async function apiGet<T>(url: string): Promise<T> {
@@ -186,39 +184,66 @@ export function assignCompetency(data: Omit<CompetencyAssignment, "id" | "assign
   return apiSend<CompetencyAssignment>("/api/dean/competency-assignments", "POST", data);
 }
 
-const subjectProgressBaseline: Record<string, { completed: number; total: number }> = {
-  "sub-1": { completed: 45, total: 60 },
-  "sub-2": { completed: 38, total: 55 },
-  "sub-3": { completed: 42, total: 58 },
-};
-
-export function getDepartmentProgress(departmentId?: string): Promise<{ subject: string; completed: number; total: number }[]> {
-  const subjects = departmentId
-    ? mockSubjects.filter((s) => s.departmentId === departmentId)
-    : mockSubjects;
-
-  return Promise.resolve(
-    subjects.map((s) => ({
-      subject: s.name,
-      ...(subjectProgressBaseline[s.id] ?? { completed: 0, total: 0 }),
-    }))
-  );
+export function updateCompetencyAssignment(
+  id: string,
+  data: Partial<Pick<CompetencyAssignment, "facultyId" | "competencyId" | "batch">>
+): Promise<CompetencyAssignment> {
+  return apiSend<CompetencyAssignment>(`/api/dean/competency-assignments/${id}`, "PATCH", data);
 }
 
-export function getDepartmentWiseProgress(): Promise<{ department: string; completed: number; total: number }[]> {
-  return Promise.resolve(
-    legacyMockDepartments.map((d) => {
-      const subjects = mockSubjects.filter((s) => s.departmentId === d.id);
-      const totals = subjects.reduce(
-        (acc, s) => {
-          const baseline = subjectProgressBaseline[s.id] ?? { completed: 0, total: 0 };
-          acc.completed += baseline.completed;
-          acc.total += baseline.total;
-          return acc;
-        },
-        { completed: 0, total: 0 }
-      );
-      return { department: d.name, ...totals };
-    })
-  );
+export function getAssessments(): Promise<Assessment[]> {
+  return apiGet<Assessment[]>("/api/assessments");
+}
+
+function assessmentCountsByAssignment(assessmentsList: Assessment[]): Map<string, { completed: number; total: number }> {
+  const counts = new Map<string, { completed: number; total: number }>();
+  for (const a of assessmentsList) {
+    const entry = counts.get(a.competencyAssignmentId) ?? { completed: 0, total: 0 };
+    entry.total += 1;
+    if (a.currentStatus === "Completed") entry.completed += 1;
+    counts.set(a.competencyAssignmentId, entry);
+  }
+  return counts;
+}
+
+export async function getDepartmentProgress(departmentId?: string): Promise<{ subject: string; completed: number; total: number }[]> {
+  const [assignments, assessmentsList] = await Promise.all([
+    getCompetencyAssignments(departmentId),
+    getAssessments(),
+  ]);
+  const counts = assessmentCountsByAssignment(assessmentsList);
+
+  const totalsBySubject = new Map<string, { completed: number; total: number }>();
+  for (const assignment of assignments) {
+    const subjectName = assignment.competency?.subjectName ?? "Unassigned";
+    const assignmentCounts = counts.get(assignment.id) ?? { completed: 0, total: 0 };
+    const entry = totalsBySubject.get(subjectName) ?? { completed: 0, total: 0 };
+    entry.completed += assignmentCounts.completed;
+    entry.total += assignmentCounts.total;
+    totalsBySubject.set(subjectName, entry);
+  }
+
+  return Array.from(totalsBySubject.entries()).map(([subject, totals]) => ({ subject, ...totals }));
+}
+
+export async function getDepartmentWiseProgress(): Promise<{ department: string; completed: number; total: number }[]> {
+  const [departments, assignments, assessmentsList] = await Promise.all([
+    getDepartments(),
+    getCompetencyAssignments(),
+    getAssessments(),
+  ]);
+  const counts = assessmentCountsByAssignment(assessmentsList);
+
+  const totalsByDepartmentId = new Map<string, { completed: number; total: number }>();
+  for (const assignment of assignments) {
+    const departmentId = assignment.faculty?.departmentId;
+    if (!departmentId) continue;
+    const assignmentCounts = counts.get(assignment.id) ?? { completed: 0, total: 0 };
+    const entry = totalsByDepartmentId.get(departmentId) ?? { completed: 0, total: 0 };
+    entry.completed += assignmentCounts.completed;
+    entry.total += assignmentCounts.total;
+    totalsByDepartmentId.set(departmentId, entry);
+  }
+
+  return departments.map((d) => ({ department: d.name, ...(totalsByDepartmentId.get(d.id) ?? { completed: 0, total: 0 }) }));
 }

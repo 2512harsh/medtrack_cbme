@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,11 +26,16 @@ import {
   getQuestionTemplates,
   createQuestionTemplate,
 } from "@/features/curriculum/services/curriculum";
-import type { Competency, Faculty, QuestionTemplate, Subject, Topic, Subtopic } from "@/types";
+import type { Competency, CompetencyAssignment, Faculty, QuestionTemplate, Subject, Topic, Subtopic } from "@/types";
 
 interface DraftQuestion {
   questionText: string;
   required: boolean;
+}
+
+function competencyLabel(c: Competency): string {
+  const base = `${c.competencyCode} — ${c.competencyTitle}`;
+  return c.competencyLevel ? `${base} (${c.competencyLevel})` : base;
 }
 
 export interface CompetencyAssignmentFormValues {
@@ -45,6 +50,7 @@ interface CompetencyAssignmentDialogProps {
   onOpenChange: (open: boolean) => void;
   isSaving: boolean;
   onSave: (values: CompetencyAssignmentFormValues) => void | Promise<void>;
+  assignment?: CompetencyAssignment | null;
 }
 
 export function CompetencyAssignmentDialog({
@@ -52,7 +58,10 @@ export function CompetencyAssignmentDialog({
   onOpenChange,
   isSaving,
   onSave,
+  assignment,
 }: CompetencyAssignmentDialogProps) {
+  const isEditMode = !!assignment;
+  const prefillingRef = useRef(false);
   const [faculty, setFaculty] = useState<Faculty[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -85,24 +94,64 @@ export function CompetencyAssignmentDialog({
   }, []);
 
   useEffect(() => {
-    if (open) {
-      setFacultyId(faculty[0]?.id ?? "");
-      setSubjectId("");
-      setTopicId("");
-      setSubtopicId("");
-      setCompetencyId("");
-      setTemplateId("");
-      setTopics([]);
-      setSubtopics([]);
-      setCompetencies([]);
-      setTemplates([]);
-      setError(null);
-      setShowTemplateForm(false);
-      resetTemplateDraft();
-    }
-  }, [open, faculty]);
+    if (!open || isEditMode) return;
+    setFacultyId(faculty[0]?.id ?? "");
+    setSubjectId("");
+    setTopicId("");
+    setSubtopicId("");
+    setCompetencyId("");
+    setTemplateId("");
+    setTopics([]);
+    setSubtopics([]);
+    setCompetencies([]);
+    setTemplates([]);
+    setError(null);
+    setShowTemplateForm(false);
+    resetTemplateDraft();
+  }, [open, faculty, isEditMode]);
 
   useEffect(() => {
+    if (!open || !assignment) return;
+    setError(null);
+    setShowTemplateForm(false);
+    resetTemplateDraft();
+    setFacultyId(assignment.facultyId);
+    setBatch(assignment.batch);
+
+    const subtopicIdVal = assignment.competency?.subtopicId;
+    if (!subtopicIdVal) return;
+
+    prefillingRef.current = true;
+    (async () => {
+      try {
+        const [allSubtopics, allTopics] = await Promise.all([getSubtopics(), getTopics()]);
+        const subtopic = allSubtopics.find((s) => s.id === subtopicIdVal);
+        const topic = subtopic ? allTopics.find((t) => t.id === subtopic.topicId) : undefined;
+        if (!topic || !subtopic) return;
+
+        setSubjectId(topic.subjectId);
+        const topicsForSubject = await getTopics(topic.subjectId);
+        setTopics(topicsForSubject);
+        setTopicId(subtopic.topicId);
+
+        const subtopicsForTopic = await getSubtopics(subtopic.topicId);
+        setSubtopics(subtopicsForTopic);
+        setSubtopicId(subtopicIdVal);
+
+        const competenciesForSubtopic = await getCompetencies(subtopicIdVal);
+        setCompetencies(competenciesForSubtopic);
+        setCompetencyId(assignment.competencyId);
+
+        const templatesForCompetency = await getQuestionTemplates(assignment.competencyId);
+        setTemplates(templatesForCompetency);
+      } finally {
+        prefillingRef.current = false;
+      }
+    })();
+  }, [open, assignment]);
+
+  useEffect(() => {
+    if (prefillingRef.current) return;
     if (!subjectId) {
       setTopics([]);
       setTopicId("");
@@ -123,6 +172,7 @@ export function CompetencyAssignmentDialog({
   }, [subjectId]);
 
   useEffect(() => {
+    if (prefillingRef.current) return;
     if (!topicId) {
       setSubtopics([]);
       setSubtopicId("");
@@ -140,6 +190,7 @@ export function CompetencyAssignmentDialog({
   }, [topicId]);
 
   useEffect(() => {
+    if (prefillingRef.current) return;
     if (!subtopicId) {
       setCompetencies([]);
       setCompetencyId("");
@@ -214,6 +265,8 @@ export function CompetencyAssignmentDialog({
     }
   };
 
+  const selectedCompetency = competencies.find((c) => c.id === competencyId);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!facultyId || !competencyId || !batch) {
@@ -228,9 +281,11 @@ export function CompetencyAssignmentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>New Competency Assignment</DialogTitle>
+          <DialogTitle>{isEditMode ? "Edit Competency Assignment" : "New Competency Assignment"}</DialogTitle>
           <DialogDescription>
-            Assign a competency template to a faculty member.
+            {isEditMode
+              ? "Update this competency assignment."
+              : "Assign a competency template to a faculty member."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -322,9 +377,16 @@ export function CompetencyAssignmentDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="competency">Competency *</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="competency">Competency *</Label>
+              {selectedCompetency?.competencyLevel && (
+                <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  Level: {selectedCompetency.competencyLevel}
+                </span>
+              )}
+            </div>
             <Select
-              items={competencies.map((c) => ({ value: c.id, label: `${c.competencyCode} — ${c.competencyTitle}` }))}
+              items={competencies.map((c) => ({ value: c.id, label: competencyLabel(c) }))}
               value={competencyId}
               onValueChange={(v) => setCompetencyId(v ?? "")}
               disabled={isSaving || !subtopicId}
@@ -332,9 +394,7 @@ export function CompetencyAssignmentDialog({
               <SelectTrigger
                 id="competency"
                 className="w-full"
-                title={competencies.find((c) => c.id === competencyId)
-                  ? `${competencies.find((c) => c.id === competencyId)?.competencyCode} — ${competencies.find((c) => c.id === competencyId)?.competencyTitle}`
-                  : undefined}
+                title={selectedCompetency ? competencyLabel(selectedCompetency) : undefined}
               >
                 <SelectValue
                   className="truncate"
@@ -344,7 +404,7 @@ export function CompetencyAssignmentDialog({
               <SelectContent className="max-w-md">
                 {competencies.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.competencyCode} — {c.competencyTitle}
+                    {competencyLabel(c)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -501,8 +561,10 @@ export function CompetencyAssignmentDialog({
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Assigning...
+                  {isEditMode ? "Updating..." : "Assigning..."}
                 </>
+              ) : isEditMode ? (
+                "Update Assignment"
               ) : (
                 "Assign Template"
               )}

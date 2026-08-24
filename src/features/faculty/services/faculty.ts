@@ -1,4 +1,4 @@
-import type { Student, CompetencyAssignment, Assessment, AssessmentAttempt } from "@/types";
+import type { Faculty, Student, CompetencyAssignment, Assessment, AssessmentAttempt } from "@/types";
 
 async function apiGet<T>(url: string): Promise<T> {
   const res = await fetch(url);
@@ -21,13 +21,17 @@ async function apiSend<T>(url: string, method: "POST" | "PATCH", body: unknown):
   return res.json();
 }
 
-interface MeFaculty {
-  id: string;
+export function getCurrentFaculty(): Promise<Faculty> {
+  return apiGet<Faculty>("/api/faculty/me");
 }
 
 async function getCurrentFacultyId(): Promise<string> {
-  const me = await apiGet<MeFaculty>("/api/faculty/me");
+  const me = await getCurrentFaculty();
   return me.id;
+}
+
+function getAllAssessments(): Promise<Assessment[]> {
+  return apiGet<Assessment[]>("/api/assessments");
 }
 
 export async function getAssignedStudents(): Promise<Student[]> {
@@ -46,8 +50,10 @@ export async function getAssignedCompetencies(): Promise<CompetencyAssignment[]>
   );
 }
 
-export function getAssessments(): Promise<Assessment[]> {
-  return apiGet<Assessment[]>("/api/assessments");
+export async function getAssessments(): Promise<Assessment[]> {
+  const facultyId = await getCurrentFacultyId();
+  const all = await getAllAssessments();
+  return all.filter((a) => a.competencyAssignment?.facultyId === facultyId);
 }
 
 export function getAssessmentAttempts(): Promise<AssessmentAttempt[]> {
@@ -58,6 +64,28 @@ export async function getAssessmentById(id: string): Promise<Assessment | undefi
   const res = await fetch(`/api/assessments/${id}`);
   if (res.status === 404) return undefined;
   if (!res.ok) throw new Error(`Failed to load assessment ${id}`);
+  return res.json();
+}
+
+export async function getAssessmentForStudentAndAssignment(
+  studentId: string,
+  competencyAssignmentId: string
+): Promise<Assessment | undefined> {
+  const assessments = await apiGet<Assessment[]>(`/api/assessments?studentId=${encodeURIComponent(studentId)}`);
+  return assessments.find((a) => a.competencyAssignmentId === competencyAssignmentId);
+}
+
+export interface StudentResponseAnswer {
+  questionId: string;
+  answerText: string;
+}
+
+export async function getAssessmentResponse(
+  assessmentId: string
+): Promise<{ templateId: string; answers: StudentResponseAnswer[] } | undefined> {
+  const res = await fetch(`/api/assessments/${assessmentId}/response`);
+  if (res.status === 404) return undefined;
+  if (!res.ok) throw new Error(`Failed to load response for assessment ${assessmentId}`);
   return res.json();
 }
 
@@ -144,10 +172,12 @@ export interface FacultyAssessmentHistoryRow {
 }
 
 export async function getFacultyAssessmentHistory(): Promise<FacultyAssessmentHistoryRow[]> {
-  const [attempts, assessments] = await Promise.all([getAssessmentAttempts(), getAssessments()]);
+  const facultyId = await getCurrentFacultyId();
+  const [attempts, assessments] = await Promise.all([getAssessmentAttempts(), getAllAssessments()]);
   const assessmentById = new Map(assessments.map((a) => [a.id, a]));
 
   const rows = attempts
+    .filter((attempt) => attempt.facultyId === facultyId)
     .map((attempt) => {
       const assessment = assessmentById.get(attempt.assessmentId);
       const student = assessment?.student;

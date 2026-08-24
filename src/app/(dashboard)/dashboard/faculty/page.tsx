@@ -6,6 +6,14 @@ import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { ErrorState } from "@/components/shared/ErrorState";
 import Link from "next/link";
 import {
+  getCurrentFaculty,
+  getAssignedStudents,
+  getAssignedCompetencies,
+  getAssessments,
+  getFacultyAssessmentHistory,
+} from "@/features/faculty/services/faculty";
+import { getCurriculumDepartments } from "@/features/curriculum/services/curriculum";
+import {
   DashboardGrid,
   DashboardCol,
   DashboardHeader,
@@ -19,7 +27,9 @@ import {
   EmptyWidget,
   DashboardSkeleton,
 } from "@/components/dashboard";
-import type { PriorityTask, CompetencyItem, ActivityItem, QuickActionItem } from "@/components/dashboard";
+import type { PriorityTask, CompetencyItem, ActivityItem, QuickActionItem, TaskUrgency } from "@/components/dashboard";
+import type { AssessmentStatus, AssessmentDecision } from "@/types";
+import type { StatusBadgeVariant } from "@/components/shared/StatusBadge";
 
 interface DashboardData {
   stats: {
@@ -28,12 +38,22 @@ interface DashboardData {
     completedReviews: string;
     awaitingSignature: string;
     remediationCases: string;
-    overdueReviews: string;
+    assignedCompetencies: string;
   };
+  department: string;
+  specialization: string;
   queue: PriorityTask[];
   competencies: CompetencyItem[];
   activity: ActivityItem[];
 }
+
+const PENDING_STATUSES: AssessmentStatus[] = ["Draft", "Assigned", "In Progress", "Submitted"];
+
+const decisionMeta: Record<AssessmentDecision, { icon: React.ReactNode; variant: StatusBadgeVariant }> = {
+  "Meets Expectations": { icon: <ClipboardCheck className="h-4 w-4" />, variant: "success" },
+  "Exceeds Expectations": { icon: <TrendingUp className="h-4 w-4" />, variant: "info" },
+  "Needs Remediation": { icon: <Clock className="h-4 w-4" />, variant: "danger" },
+};
 
 const quickActions: QuickActionItem[] = [
   { label: "Assessment Queue", href: "/faculty/assessment-queue", icon: <ListChecks className="h-4 w-4" />, accent: "primary" },
@@ -49,38 +69,96 @@ export default function FacultyDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchData = () => {
+  const fetchData = async () => {
     setIsLoading(true);
     setError(null);
     try {
+      const [me, departments, students, competencyAssignments, assessments, history] = await Promise.all([
+        getCurrentFaculty(),
+        getCurriculumDepartments(),
+        getAssignedStudents(),
+        getAssignedCompetencies(),
+        getAssessments(),
+        getFacultyAssessmentHistory(),
+      ]);
+
+      const department = departments.find((d) => d.id === me.departmentId)?.name ?? "—";
+
+      const pending = assessments.filter((a) => PENDING_STATUSES.includes(a.currentStatus));
+      const awaitingSignature = assessments.filter((a) => a.currentStatus === "Waiting for Student Acknowledgement");
+      const remediation = assessments.filter((a) => a.currentStatus === "Reattempt Scheduled");
+
+      const queue: PriorityTask[] = pending
+        .slice()
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+        .slice(0, 4)
+        .map((a) => {
+          const daysWaiting = Math.max(0, Math.floor((Date.now() - new Date(a.createdAt).getTime()) / 86400000));
+          const urgency: TaskUrgency = daysWaiting >= 3 ? "overdue" : daysWaiting >= 1 ? "today" : "upcoming";
+          const competency = a.competencyAssignment?.competency;
+          return {
+            id: a.id,
+            action: "Complete Assessment",
+            competency: competency ? `${competency.competencyCode} - ${competency.competencyTitle}` : "Unknown Competency",
+            subject: competency?.subjectName ?? "—",
+            dueLabel: daysWaiting === 0 ? "Assigned today" : `Waiting ${daysWaiting} day${daysWaiting === 1 ? "" : "s"}`,
+            urgency,
+            attempt: `Attempt ${a.currentAttempt}`,
+            actionLabel: "Review",
+            actionHref: `/faculty/assessment-form?assessmentId=${a.id}`,
+          };
+        });
+
+      const competencies: CompetencyItem[] = competencyAssignments
+        .map((a) => {
+          const total = a.totalStudents ?? 0;
+          const completedCount = Math.max(total - (a.pendingCount ?? 0), 0);
+          const progress = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+          const status: CompetencyItem["status"] =
+            total === 0 || completedCount === 0 ? "Pending" : (a.pendingCount ?? 0) === 0 ? "Completed" : "In Progress";
+          return {
+            id: a.id,
+            code: a.competency?.competencyCode ?? "—",
+            title: a.competency?.competencyTitle ?? "Unknown",
+            subject: a.competency?.subjectName ?? "—",
+            status,
+            progress,
+            href: "/faculty/assigned-competencies",
+          };
+        })
+        .sort((a, b) => a.progress - b.progress)
+        .slice(0, 5);
+
+      const activity: ActivityItem[] = history.slice(0, 4).map((h) => {
+        const meta = decisionMeta[h.decision];
+        return {
+          id: h.id,
+          title: `${h.studentName} assessed for ${h.competencyCode} - ${h.decision}`,
+          timestamp: new Date(h.facultySignedAt).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+          icon: meta.icon,
+          status: h.decision,
+          statusVariant: meta.variant,
+        };
+      });
+
       setData({
         stats: {
-          assignedStudents: "24",
-          pendingReviews: "7",
-          completedReviews: "89",
-          awaitingSignature: "5",
-          remediationCases: "3",
-          overdueReviews: "2",
+          assignedStudents: String(students.length),
+          pendingReviews: String(pending.length),
+          completedReviews: String(history.length),
+          awaitingSignature: String(awaitingSignature.length),
+          remediationCases: String(remediation.length),
+          assignedCompetencies: String(competencyAssignments.length),
         },
-        queue: [
-          { id: "q1", action: "Review Assessment", competency: "PY3.2 - Nerve Physiology", subject: "Physiology", dueLabel: "Today", urgency: "today", attempt: "Attempt 1", actionLabel: "Review", actionHref: "/faculty/assessment-queue" },
-          { id: "q2", action: "Review Assessment", competency: "AN8.2 - Upper Limb", subject: "Anatomy", dueLabel: "Yesterday", urgency: "overdue", attempt: "Attempt 1", actionLabel: "Review", actionHref: "/faculty/assessment-queue" },
-          { id: "q3", action: "Complete Assessment", competency: "BI2.1 - Protein Structure", subject: "Biochemistry", dueLabel: "Tomorrow", urgency: "tomorrow", attempt: "Attempt 1", actionLabel: "Start", actionHref: "/faculty/assessment-queue" },
-          { id: "q4", action: "Review Assessment", competency: "AN12.3 - Hand Anatomy", subject: "Anatomy", dueLabel: "Aug 14, 2026", urgency: "upcoming", attempt: "Attempt 2", actionLabel: "Review", actionHref: "/faculty/assessment-queue" },
-        ],
-        competencies: [
-          { id: "fc1", code: "AN8.2", title: "Upper Limb - Bones & Joints", subject: "Anatomy", status: "Approved", progress: 100, href: "/faculty/assigned-competencies" },
-          { id: "fc2", code: "AN12.3", title: "Hand Anatomy", subject: "Anatomy", status: "In Progress", progress: 65, href: "/faculty/assigned-competencies" },
-          { id: "fc3", code: "PY3.2", title: "Nerve Physiology", subject: "Physiology", status: "Awaiting Review", progress: 80, href: "/faculty/assigned-competencies" },
-          { id: "fc4", code: "PY5.1", title: "Cardiac Cycle", subject: "Physiology", status: "Overdue", progress: 40, href: "/faculty/assigned-competencies" },
-          { id: "fc5", code: "BI2.1", title: "Protein Structure", subject: "Biochemistry", status: "Pending", progress: 0, href: "/faculty/assigned-competencies" },
-        ],
-        activity: [
-          { id: "a1", title: "Aarav Patel assessed for AN8.1 - Meets Expectations", timestamp: "Aug 4, 2026", icon: <ClipboardCheck className="h-4 w-4" />, status: "Meets Expectations", statusVariant: "success" },
-          { id: "a2", title: "Priya Sharma assessed for PY3.1 - Exceeds Expectations", timestamp: "Aug 3, 2026", icon: <TrendingUp className="h-4 w-4" />, status: "Exceeds Expectations", statusVariant: "info" },
-          { id: "a3", title: "Rohan Verma assessed for BI1.1 - Meets Expectations", timestamp: "Aug 2, 2026", icon: <ClipboardCheck className="h-4 w-4" />, status: "Meets Expectations", statusVariant: "success" },
-          { id: "a4", title: "Sneha Reddy assessed for AN12.1 - Needs Remediation", timestamp: "Aug 1, 2026", icon: <Clock className="h-4 w-4" />, status: "Needs Remediation", statusVariant: "danger" },
-        ],
+        department,
+        specialization: me.specialization ?? "—",
+        queue,
+        competencies,
+        activity,
       });
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load dashboard data"));
@@ -91,6 +169,7 @@ export default function FacultyDashboard() {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (isLoading) {
@@ -118,8 +197,8 @@ export default function FacultyDashboard() {
         identity={
           <>
             <IdentityItem label="Assigned Students" value={data.stats.assignedStudents} />
-            <IdentityItem label="Department" value="Anatomy" />
-            <IdentityItem label="Specialization" value="Gross Anatomy" />
+            <IdentityItem label="Department" value={data.department} />
+            <IdentityItem label="Specialization" value={data.specialization} />
             <IdentityItem label="Pending Reviews" value={data.stats.pendingReviews} />
             <IdentityItem label="Remediation Cases" value={data.stats.remediationCases} />
           </>
@@ -129,11 +208,11 @@ export default function FacultyDashboard() {
       {/* KPI row — 6 cards on desktop */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <MetricCard label="Assigned Students" value={data.stats.assignedStudents} icon={<Users className="h-5 w-5" />} color="blue" />
-        <MetricCard label="Pending Reviews" value={data.stats.pendingReviews} icon={<ClipboardCheck className="h-5 w-5" />} color="orange" sub="2 overdue" />
-        <MetricCard label="Completed Reviews" value={data.stats.completedReviews} icon={<TrendingUp className="h-5 w-5" />} color="green" trend="+12 this month" trendUp />
+        <MetricCard label="Pending Reviews" value={data.stats.pendingReviews} icon={<ClipboardCheck className="h-5 w-5" />} color="orange" />
+        <MetricCard label="Completed Reviews" value={data.stats.completedReviews} icon={<TrendingUp className="h-5 w-5" />} color="green" />
         <MetricCard label="Awaiting Signature" value={data.stats.awaitingSignature} icon={<ShieldCheck className="h-5 w-5" />} color="purple" sub="Student acknowledgment" />
-        <MetricCard label="Remediation Cases" value={data.stats.remediationCases} icon={<Clock className="h-5 w-5" />} color="red" sub="1 due today" />
-        <MetricCard label="Overdue Reviews" value={data.stats.overdueReviews} icon={<Timer className="h-5 w-5" />} color="yellow" sub="Review now" />
+        <MetricCard label="Remediation Cases" value={data.stats.remediationCases} icon={<Clock className="h-5 w-5" />} color="red" />
+        <MetricCard label="Assigned Competencies" value={data.stats.assignedCompetencies} icon={<BookOpen className="h-5 w-5" />} color="yellow" />
       </div>
 
       <DashboardGrid>
@@ -141,7 +220,7 @@ export default function FacultyDashboard() {
         <DashboardCol span={8}>
           <SectionCard
             title="Assessment Queue"
-            description="Pending and in-progress assessments, sorted by urgency"
+            description="Pending and in-progress assessments, sorted by how long they've been waiting"
             action={
               <Link href="/faculty/assessment-queue" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                 View all <ArrowRight className="h-3 w-3" />
