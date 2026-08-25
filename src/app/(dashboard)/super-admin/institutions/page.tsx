@@ -4,10 +4,11 @@ import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Edit } from "lucide-react";
 import {
   getInstitutions,
   createInstitution,
+  updateInstitution,
   setInstitutionStatus,
 } from "@/features/super-admin/services/superAdmin";
 import type { Institution } from "@/types";
@@ -60,6 +61,7 @@ export default function InstitutionsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingInstitution, setEditingInstitution] = useState<InstitutionRow | null>(null);
   const [form, setForm] = useState({
     name: "",
     code: "",
@@ -71,6 +73,25 @@ export default function InstitutionsPage() {
 
   const [deactivateTarget, setDeactivateTarget] = useState<InstitutionRow | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+
+  const openCreate = () => {
+    setEditingInstitution(null);
+    setForm({ name: "", code: "", city: "", state: "", email: "", phone: "" });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (institution: InstitutionRow) => {
+    setEditingInstitution(institution);
+    setForm({
+      name: institution.name,
+      code: institution.code,
+      city: institution.city === "-" ? "" : institution.city,
+      state: institution.state === "-" ? "" : institution.state,
+      email: institution.email === "-" ? "" : institution.email,
+      phone: institution.phone === "-" ? "" : institution.phone,
+    });
+    setDialogOpen(true);
+  };
 
   const columns: ColumnDef<AppTableFeatures, InstitutionRow>[] = [
     {
@@ -111,16 +132,26 @@ export default function InstitutionsPage() {
       cell: ({ row }) => {
         const institution = row.original as InstitutionRow;
         return (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeactivateTarget(institution)}
-            aria-label={
-              institution.status === "ACTIVE" ? "Deactivate" : "Activate"
-            }
-          >
-            <Power className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => openEdit(institution)}
+              aria-label="Edit"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeactivateTarget(institution)}
+              aria-label={
+                institution.status === "ACTIVE" ? "Deactivate" : "Activate"
+              }
+            >
+              <Power className="h-4 w-4" />
+            </Button>
+          </div>
         );
       },
     },
@@ -143,28 +174,34 @@ export default function InstitutionsPage() {
     fetchData();
   }, []);
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!form.name || !form.code) {
       toast.error("Name and code are required");
       return;
     }
     setSubmitting(true);
     try {
-      await createInstitution({
+      const payload = {
         name: form.name,
         code: form.code,
         city: form.city || undefined,
         state: form.state || undefined,
         email: form.email || undefined,
         phone: form.phone || undefined,
-        status: "ACTIVE",
-      });
-      toast.success("Institution created successfully");
+      };
+      if (editingInstitution) {
+        await updateInstitution(editingInstitution.id, payload);
+        toast.success("Institution updated successfully");
+      } else {
+        await createInstitution({ ...payload, status: "ACTIVE" });
+        toast.success("Institution created successfully");
+      }
       setDialogOpen(false);
+      setEditingInstitution(null);
       setForm({ name: "", code: "", city: "", state: "", email: "", phone: "" });
       await fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create institution");
+      toast.error(err instanceof Error ? err.message : "Failed to save institution");
     } finally {
       setSubmitting(false);
     }
@@ -196,7 +233,7 @@ export default function InstitutionsPage() {
         title="Institutions"
         description="Manage medical colleges on the platform"
         actions={
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Add Institution
           </Button>
@@ -224,13 +261,15 @@ export default function InstitutionsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Institution</DialogTitle>
+            <DialogTitle>{editingInstitution ? "Edit Institution" : "Add Institution"}</DialogTitle>
             <DialogDescription>
-              Onboard a new medical college to the platform.
+              {editingInstitution
+                ? "Update this medical college's details."
+                : "Onboard a new medical college to the platform."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="inst-name">Name *</Label>
                 <Input
@@ -250,7 +289,7 @@ export default function InstitutionsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="inst-city">City</Label>
                 <Input
@@ -270,7 +309,7 @@ export default function InstitutionsPage() {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="inst-email">Email</Label>
                 <Input
@@ -295,13 +334,22 @@ export default function InstitutionsPage() {
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
-              onClick={() => setDialogOpen(false)}
+              onClick={() => {
+                setDialogOpen(false);
+                setEditingInstitution(null);
+              }}
               disabled={submitting}
             >
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={submitting}>
-              {submitting ? "Creating..." : "Create Institution"}
+            <Button onClick={handleSave} disabled={submitting}>
+              {submitting
+                ? editingInstitution
+                  ? "Saving..."
+                  : "Creating..."
+                : editingInstitution
+                  ? "Save Changes"
+                  : "Create Institution"}
             </Button>
           </DialogFooter>
         </DialogContent>

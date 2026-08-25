@@ -12,11 +12,13 @@ import {
   coreColumnsFeature,
   rowSortingFeature,
   rowPaginationFeature,
+  createPaginatedRowModel,
   columnFilteringFeature,
   globalFilteringFeature,
   flexRender,
   type ColumnDef,
   type RowData,
+  type PaginationState,
 } from "@tanstack/react-table";
 import {
   Table as UITable,
@@ -66,6 +68,7 @@ const appFeatures = {
   coreColumnsFeature,
   rowSortingFeature,
   rowPaginationFeature,
+  paginatedRowModel: createPaginatedRowModel(),
   columnFilteringFeature,
   globalFilteringFeature,
 };
@@ -80,10 +83,6 @@ interface TableCellLike {
 interface TableRowLike {
   id: string;
   getAllCells: () => TableCellLike[];
-}
-interface PaginationState {
-  pageIndex: number;
-  pageSize: number;
 }
 interface TableApi {
   getHeaderGroups: () => {
@@ -126,6 +125,10 @@ export function DataTable<TData extends RowData>({
   className,
 }: DataTableProps<TData>) {
   const [internalSearch, setInternalSearch] = React.useState("");
+  const [pagination, setPagination] = React.useState<PaginationState>({
+    pageIndex: 0,
+    pageSize,
+  });
   const isSearchControlled = typeof onSearch === "function";
   const hasExplicitPlaceholder = searchPlaceholder !== "Search...";
 
@@ -143,14 +146,12 @@ export function DataTable<TData extends RowData>({
     features: appFeatures,
     manualFiltering: isSearchControlled,
     manualSorting: false,
+    onPaginationChange: setPagination,
     state: {
       sorting: [],
       columnFilters: [],
       globalFilter: isSearchControlled ? searchValue || "" : internalSearch,
-      pagination: {
-        pageIndex: 0,
-        pageSize,
-      },
+      pagination,
     },
   }) as unknown as TableApi;
 

@@ -42,7 +42,7 @@ export function getHodAccounts(filters?: { institutionId?: string; departmentId?
 }
 
 export function createHodAccount(
-  data: Pick<HodAccount, "firstName" | "lastName" | "email" | "institutionId" | "departmentId" | "status" | "password">
+  data: Pick<HodAccount, "firstName" | "lastName" | "email" | "departmentId" | "status" | "password">
 ): Promise<HodAccount> {
   return apiSend<HodAccount>("/api/dean/hod", "POST", data);
 }

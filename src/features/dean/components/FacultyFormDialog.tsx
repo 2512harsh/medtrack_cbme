@@ -35,6 +35,10 @@ interface FacultyFormDialogProps {
   departments: Department[];
   isSaving: boolean;
   onSave: (values: FacultyFormValues) => void | Promise<void>;
+  // Set for HOD: the server force-assigns new/edited faculty to this
+  // department regardless of what's submitted, so the field is locked here
+  // too — otherwise the dropdown implies a choice that's silently discarded.
+  lockedDepartmentId?: string;
 }
 
 export function FacultyFormDialog({
@@ -44,6 +48,7 @@ export function FacultyFormDialog({
   departments,
   isSaving,
   onSave,
+  lockedDepartmentId,
 }: FacultyFormDialogProps) {
   const [values, setValues] = useState<FacultyFormValues>({
     firstName: "",
@@ -65,7 +70,7 @@ export function FacultyFormDialog({
         lastName: faculty?.user?.lastName ?? "",
         email: faculty?.user?.email ?? "",
         password: "",
-        departmentId: faculty?.departmentId ?? departments[0]?.id ?? "",
+        departmentId: lockedDepartmentId ?? faculty?.departmentId ?? departments[0]?.id ?? "",
         designation: faculty?.designation ?? "",
         employeeCode: faculty?.employeeCode ?? "",
         specialization: faculty?.specialization ?? "",
@@ -73,7 +78,7 @@ export function FacultyFormDialog({
       });
       setError(null);
     }
-  }, [open, faculty, departments]);
+  }, [open, faculty, departments, lockedDepartmentId]);
 
   const set = (key: keyof FacultyFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -108,7 +113,7 @@ export function FacultyFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name *</Label>
               <Input
@@ -156,14 +161,14 @@ export function FacultyFormDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="department">Department *</Label>
               <Select
                 items={departments.map((d) => ({ value: d.id, label: d.name }))}
                 value={values.departmentId}
                 onValueChange={(v) => set("departmentId", v ?? "")}
-                disabled={isSaving}
+                disabled={isSaving || !!lockedDepartmentId}
               >
                 <SelectTrigger id="department">
                   <SelectValue placeholder="Select a department" />
@@ -176,6 +181,9 @@ export function FacultyFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {lockedDepartmentId && (
+                <p className="text-xs text-muted-foreground">Locked to your own department.</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
@@ -196,7 +204,7 @@ export function FacultyFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="designation">Designation *</Label>
               <Input

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { subjects, topics, subtopics, competencies } from "@/db/schema";
+import { requireRole } from "@/lib/api-auth";
 
 interface ImportRow {
   subject?: string;
@@ -18,6 +19,9 @@ interface ImportRow {
 type ImportMode = "insert" | "update" | "upsert";
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(request, ["Super Admin", "Dean"]);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const { defaultSubjectId, mode, rows } = body as {
     defaultSubjectId?: string;

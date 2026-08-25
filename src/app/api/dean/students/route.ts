@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { students, users } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
+import { requireRole, requireInstitution } from "@/lib/api-auth";
 
 function toStudent(row: { students: typeof students.$inferSelect; users: typeof users.$inferSelect }) {
   return {
@@ -30,20 +31,52 @@ function toStudent(row: { students: typeof students.$inferSelect; users: typeof 
 }
 
 export async function GET(request: NextRequest) {
-  const departmentId = request.nextUrl.searchParams.get("departmentId");
-  const query = db.select().from(students).innerJoin(users, eq(students.userId, users.id));
-  const rows = departmentId ? await query.where(eq(users.departmentId, departmentId)) : await query;
+  // Super Admin sees students across every institution (e.g. the audit
+  // report); Dean/HOD are scoped to their own institution/department.
+  const auth = await requireRole(request, ["Dean", "HOD", "Super Admin"]);
+  if (!auth.ok) return auth.response;
+
+  const conditions = [];
+
+  if (auth.user.role === "Super Admin") {
+    const institutionId = request.nextUrl.searchParams.get("institutionId");
+    if (institutionId) conditions.push(eq(users.institutionId, institutionId));
+    const departmentId = request.nextUrl.searchParams.get("departmentId");
+    if (departmentId) conditions.push(eq(users.departmentId, departmentId));
+  } else {
+    const institutionError = requireInstitution(auth.user);
+    if (institutionError) return institutionError;
+
+    const departmentId =
+      auth.user.role === "HOD" ? auth.user.departmentId : request.nextUrl.searchParams.get("departmentId");
+    if (auth.user.role === "HOD" && !departmentId) {
+      return NextResponse.json({ message: "Your account has no department assigned." }, { status: 403 });
+    }
+
+    conditions.push(eq(users.institutionId, auth.user.institutionId!));
+    if (departmentId) conditions.push(eq(users.departmentId, departmentId));
+  }
+
+  const rows = await db
+    .select()
+    .from(students)
+    .innerJoin(users, eq(students.userId, users.id))
+    .where(and(...conditions));
   return NextResponse.json(rows.map(toStudent));
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(request, ["Dean", "HOD"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const body = await request.json();
   const {
     firstName,
     lastName,
     email,
     password,
-    departmentId,
     rollNumber,
     registrationNumber,
     streamId,
@@ -66,6 +99,10 @@ export async function POST(request: NextRequest) {
     status?: "ACTIVE" | "INACTIVE";
   };
 
+  // HOD's students always land in their own department; Dean may assign any
+  // department (or leave unassigned).
+  const departmentId = auth.user.role === "HOD" ? auth.user.departmentId : (body as { departmentId?: string }).departmentId;
+
   if (!firstName || !lastName || !email || !password || !rollNumber || !registrationNumber || !streamId || !professionalYearId || !batch || !admissionYear) {
     return NextResponse.json({ message: "Missing required student fields" }, { status: 400 });
   }
@@ -80,6 +117,9 @@ export async function POST(request: NextRequest) {
         passwordHash: hashPassword(password),
         role: "Student",
         status: status ?? "ACTIVE",
+        // Institution is never taken from the client — a student is always
+        // created under the creating Dean/HOD's own institution.
+        institutionId: auth.user.institutionId,
         departmentId: departmentId || null,
       })
       .returning();

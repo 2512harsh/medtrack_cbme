@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
+import { requireRole, requireInstitution } from "@/lib/api-auth";
 
 function toHod(row: typeof users.$inferSelect) {
   return {
@@ -21,20 +22,26 @@ function toHod(row: typeof users.$inferSelect) {
 }
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/hod/[id]">) {
+  const auth = await requireRole(request, ["Dean"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const { id } = await ctx.params;
   const body = await request.json();
-  const { firstName, lastName, email, password, institutionId, departmentId, status } = body as {
+  const { firstName, lastName, email, password, departmentId, status } = body as {
     firstName?: string;
     lastName?: string;
     email?: string;
     password?: string;
-    institutionId?: string;
     departmentId?: string;
     status?: "ACTIVE" | "INACTIVE";
   };
 
   const [existing] = await db.select().from(users).where(eq(users.id, id));
-  if (!existing || existing.role !== "HOD") {
+  // 404 (not 403) for out-of-institution rows so we don't confirm to a caller
+  // that an HOD with this id exists elsewhere.
+  if (!existing || existing.role !== "HOD" || existing.institutionId !== auth.user.institutionId) {
     return NextResponse.json({ message: "HOD not found" }, { status: 404 });
   }
 
@@ -44,7 +51,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/h
     if (lastName !== undefined) updates.lastName = lastName;
     if (email !== undefined) updates.email = email;
     if (password) updates.passwordHash = hashPassword(password);
-    if (institutionId !== undefined) updates.institutionId = institutionId;
+    // institutionId is intentionally never updatable here — an HOD cannot be
+    // moved to another institution through this endpoint.
     if (departmentId !== undefined) updates.departmentId = departmentId;
     if (status !== undefined) updates.status = status;
 

@@ -4,8 +4,8 @@ import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
-import { Plus, Power } from "lucide-react";
-import { getDepartments, createDepartment, setDepartmentStatus } from "@/features/super-admin/services/superAdmin";
+import { Plus, Power, Edit } from "lucide-react";
+import { getDepartments, createDepartment, updateDepartment, setDepartmentStatus } from "@/features/super-admin/services/superAdmin";
 import { ColumnDef } from "@tanstack/react-table";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
@@ -36,10 +36,26 @@ export default function DepartmentsPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [editingDepartment, setEditingDepartment] = useState<DepartmentRow | null>(null);
   const [form, setForm] = useState({ name: "", description: "" });
 
   const [statusTarget, setStatusTarget] = useState<DepartmentRow | null>(null);
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  const openCreate = () => {
+    setEditingDepartment(null);
+    setForm({ name: "", description: "" });
+    setDialogOpen(true);
+  };
+
+  const openEdit = (department: DepartmentRow) => {
+    setEditingDepartment(department);
+    setForm({
+      name: department.name,
+      description: department.description === "-" ? "" : department.description,
+    });
+    setDialogOpen(true);
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -100,20 +116,25 @@ export default function DepartmentsPage() {
       cell: ({ row }) => {
         const department = row.original as DepartmentRow;
         return (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setStatusTarget(department)}
-            aria-label={department.status === "ACTIVE" ? "Deactivate" : "Activate"}
-          >
-            <Power className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" onClick={() => openEdit(department)} aria-label="Edit">
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setStatusTarget(department)}
+              aria-label={department.status === "ACTIVE" ? "Deactivate" : "Activate"}
+            >
+              <Power className="h-4 w-4" />
+            </Button>
+          </div>
         );
       },
     },
   ];
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!form.name.trim()) {
       toast.error("Name is required");
       return;
@@ -121,18 +142,27 @@ export default function DepartmentsPage() {
 
     setSubmitting(true);
     try {
-      await createDepartment({
-        name: form.name.trim(),
-        description: form.description || undefined,
-        status: "ACTIVE",
-      });
+      if (editingDepartment) {
+        await updateDepartment(editingDepartment.id, {
+          name: form.name.trim(),
+          description: form.description || undefined,
+        });
+        toast.success("Department updated successfully");
+      } else {
+        await createDepartment({
+          name: form.name.trim(),
+          description: form.description || undefined,
+          status: "ACTIVE",
+        });
+        toast.success("Department created successfully");
+      }
 
-      toast.success("Department created successfully");
       setDialogOpen(false);
+      setEditingDepartment(null);
       setForm({ name: "", description: "" });
       await fetchData();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create department");
+      toast.error(err instanceof Error ? err.message : "Failed to save department");
     } finally {
       setSubmitting(false);
     }
@@ -160,7 +190,7 @@ export default function DepartmentsPage() {
         title="Departments"
         description="The shared department list used across every institution on the platform"
         actions={
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Add Department
           </Button>
@@ -188,10 +218,11 @@ export default function DepartmentsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Department</DialogTitle>
+            <DialogTitle>{editingDepartment ? "Edit Department" : "Add Department"}</DialogTitle>
             <DialogDescription>
-              Departments are shared across every institution — a Dean or HOD is assigned to a department at a
-              specific institution from the Dean/HOD Management pages.
+              {editingDepartment
+                ? "Update this department's details."
+                : "Departments are shared across every institution — a Dean or HOD is assigned to a department at a specific institution from the Dean/HOD Management pages."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -215,11 +246,24 @@ export default function DepartmentsPage() {
             </div>
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDialogOpen(false);
+                setEditingDepartment(null);
+              }}
+              disabled={submitting}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={submitting}>
-              {submitting ? "Creating..." : "Create Department"}
+            <Button onClick={handleSave} disabled={submitting}>
+              {submitting
+                ? editingDepartment
+                  ? "Saving..."
+                  : "Creating..."
+                : editingDepartment
+                  ? "Save Changes"
+                  : "Create Department"}
             </Button>
           </DialogFooter>
         </DialogContent>
