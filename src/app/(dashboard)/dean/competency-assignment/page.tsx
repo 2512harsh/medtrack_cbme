@@ -50,8 +50,8 @@ export default function CompetencyAssignmentPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // Not filtered by departmentId: the mock logged-in user's departmentId
-      // ("dept-1") doesn't match real department ids now that this is DB-backed.
+      // Scoping to the caller's institution/department (or own faculty record,
+      // for Faculty role) is enforced server-side in /api/dean/competency-assignments.
       const result = await getCompetencyAssignments();
       setAssignments(result);
     } catch (err) {

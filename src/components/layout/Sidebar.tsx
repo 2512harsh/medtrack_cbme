@@ -52,11 +52,11 @@ const navigation = [
     roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"],
     children: [
       { title: "Streams", href: "/curriculum/streams", roles: ["Super Admin"] },
-      { title: "Professional Years", href: "/curriculum/professional-years", roles: ["Super Admin", "Dean", "HOD"] },
+      { title: "Professional Years", href: "/curriculum/professional-years", roles: ["Super Admin", "Dean"] },
       { title: "Subjects", href: "/curriculum/subjects", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
       { title: "Topics", href: "/curriculum/topics", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
       { title: "Competencies", href: "/curriculum/competencies", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
-      { title: "Excel Import", href: "/curriculum/import", roles: ["Super Admin"] },
+      { title: "Excel Import", href: "/curriculum/import", roles: ["Super Admin", "Dean"] },
     ],
   },
   {
@@ -65,8 +65,8 @@ const navigation = [
     icon: Users,
     roles: ["Super Admin", "Dean", "HOD", "Faculty"],
     children: [
-      { title: "Faculty Management", href: "/dean/faculty", roles: ["Dean", "HOD"] },
       { title: "HOD Management", href: "/dean/hod", roles: ["Dean"] },
+      { title: "Faculty Management", href: "/dean/faculty", roles: ["Dean", "HOD"] },
       { title: "Assigned Students", href: "/faculty/assigned-students", roles: ["Faculty"] },
       { title: "Assigned Competencies", href: "/faculty/assigned-competencies", roles: ["Faculty"] },
       { title: "Assessment Queue", href: "/faculty/assessment-queue", roles: ["Faculty"] },

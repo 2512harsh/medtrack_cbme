@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
+import { requireRole, requireInstitution } from "@/lib/api-auth";
 
 function toHod(row: typeof users.$inferSelect) {
   return {
@@ -21,11 +22,22 @@ function toHod(row: typeof users.$inferSelect) {
 }
 
 export async function GET(request: NextRequest) {
-  const institutionId = request.nextUrl.searchParams.get("institutionId");
-  const departmentId = request.nextUrl.searchParams.get("departmentId");
+  // Super Admin sees HODs across every institution (e.g. the platform
+  // dashboard's HOD count); Dean is scoped to their own institution only.
+  const auth = await requireRole(request, ["Dean", "Super Admin"]);
+  if (!auth.ok) return auth.response;
 
+  const departmentId = request.nextUrl.searchParams.get("departmentId");
   const conditions = [eq(users.role, "HOD")];
-  if (institutionId) conditions.push(eq(users.institutionId, institutionId));
+
+  if (auth.user.role === "Dean") {
+    const institutionError = requireInstitution(auth.user);
+    if (institutionError) return institutionError;
+    conditions.push(eq(users.institutionId, auth.user.institutionId!));
+  } else {
+    const institutionId = request.nextUrl.searchParams.get("institutionId");
+    if (institutionId) conditions.push(eq(users.institutionId, institutionId));
+  }
   if (departmentId) conditions.push(eq(users.departmentId, departmentId));
 
   const rows = await db.select().from(users).where(and(...conditions));
@@ -33,20 +45,24 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(request, ["Dean"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const body = await request.json();
-  const { firstName, lastName, email, password, institutionId, departmentId, status } = body as {
+  const { firstName, lastName, email, password, departmentId, status } = body as {
     firstName: string;
     lastName: string;
     email: string;
     password: string;
-    institutionId: string;
     departmentId: string;
     status?: "ACTIVE" | "INACTIVE";
   };
 
-  if (!firstName || !lastName || !email || !password || !institutionId || !departmentId) {
+  if (!firstName || !lastName || !email || !password || !departmentId) {
     return NextResponse.json(
-      { message: "firstName, lastName, email, password, institutionId, and departmentId are required" },
+      { message: "firstName, lastName, email, password, and departmentId are required" },
       { status: 400 }
     );
   }
@@ -61,7 +77,9 @@ export async function POST(request: NextRequest) {
         passwordHash: hashPassword(password),
         role: "HOD",
         status: status ?? "ACTIVE",
-        institutionId,
+        // Institution is never taken from the client — an HOD is always
+        // created under the creating Dean's own institution.
+        institutionId: auth.user.institutionId,
         departmentId,
       })
       .returning();

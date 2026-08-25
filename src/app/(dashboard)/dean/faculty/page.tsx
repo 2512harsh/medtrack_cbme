@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit, Trash2, UserCheck } from "lucide-react";
@@ -33,6 +34,8 @@ type FacultyRow = {
 };
 
 export default function FacultyManagementPage() {
+  const { user } = useAuth();
+  const lockedDepartmentId = user?.role === "HOD" ? user.departmentId : undefined;
   const [data, setData] = useState<FacultyRow[] | undefined>(undefined);
   const [facultyList, setFacultyList] = useState<Faculty[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -49,8 +52,8 @@ export default function FacultyManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      // Not filtered by departmentId: the mock logged-in user's departmentId
-      // ("dept-1") doesn't match real department ids now that this is DB-backed.
+      // Scoping to the caller's institution/department is enforced server-side
+      // in /api/dean/faculty based on the session, not on query params here.
       const [faculty, depts] = await Promise.all([getFaculty(), getCurriculumDepartments()]);
       setFacultyList(faculty);
       setDepartments(depts);
@@ -244,6 +247,7 @@ export default function FacultyManagementPage() {
         departments={departments}
         isSaving={isSaving}
         onSave={handleSave}
+        lockedDepartmentId={lockedDepartmentId}
       />
 
       <ConfirmationDialog

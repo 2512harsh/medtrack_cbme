@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { getSubjects, getProfessionalYears, getCurriculumDepartments, getTopics, getSubtopics, getCompetencies, createSubject, updateSubject } from "@/features/curriculum/services/curriculum";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { AsyncContent } from "@/components/shared/AsyncContent";
@@ -30,6 +31,8 @@ type SubjectRow = {
 };
 
 export default function SubjectsPage() {
+  const { user } = useAuth();
+  const lockedDepartmentId = user?.role === "HOD" ? user.departmentId : undefined;
   const [data, setData] = useState<SubjectRow[] | undefined>(undefined);
   const [subjectList, setSubjectList] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -187,12 +190,16 @@ export default function SubjectsPage() {
 
   const filteredRows = useMemo(() => {
     if (!data) return undefined;
+    // HOD's data is already department-scoped server-side, so the
+    // department filter would only ever be a no-op or an empty result for
+    // them — apply it only when the caller isn't locked to one department.
+    const effectiveDepartmentFilter = lockedDepartmentId ?? departmentFilter;
     return data.filter((row) => {
       if (yearFilter !== "all" && row.professionalYearId !== yearFilter) return false;
-      if (departmentFilter !== "all" && row.departmentId !== departmentFilter) return false;
+      if (effectiveDepartmentFilter !== "all" && row.departmentId !== effectiveDepartmentFilter) return false;
       return true;
     });
-  }, [data, yearFilter, departmentFilter]);
+  }, [data, yearFilter, departmentFilter, lockedDepartmentId]);
 
   return (
     <div className="space-y-6">
@@ -228,6 +235,7 @@ export default function SubjectsPage() {
           </Select>
         </div>
 
+        {!lockedDepartmentId && (
         <div className="space-y-1.5 w-full sm:w-64">
           <Label htmlFor="department-filter">Department</Label>
           <Select
@@ -246,6 +254,7 @@ export default function SubjectsPage() {
             </SelectContent>
           </Select>
         </div>
+        )}
       </div>
 
       <AsyncContent
@@ -274,6 +283,7 @@ export default function SubjectsPage() {
         departments={departments}
         isSaving={isSaving}
         onSave={handleSave}
+        lockedDepartmentId={lockedDepartmentId}
       />
     </div>
   );

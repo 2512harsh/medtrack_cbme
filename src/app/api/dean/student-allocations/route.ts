@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { studentAllocations, faculty, students, subjects, users } from "@/db/schema";
+import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
 async function embedAllocations(rows: (typeof studentAllocations.$inferSelect)[]) {
   if (rows.length === 0) return [];
@@ -82,14 +83,39 @@ async function embedAllocations(rows: (typeof studentAllocations.$inferSelect)[]
   }));
 }
 
+// Faculty ids reachable by this dean/HOD: scoped to their institution, and to
+// their own department if they're an HOD.
+async function scopedFacultyIds(user: SessionUser): Promise<Set<string>> {
+  const conditions = [eq(users.institutionId, user.institutionId!)];
+  if (user.role === "HOD") conditions.push(eq(faculty.departmentId, user.departmentId!));
+
+  const rows = await db
+    .select({ id: faculty.id })
+    .from(faculty)
+    .innerJoin(users, eq(faculty.userId, users.id))
+    .where(and(...conditions));
+  return new Set(rows.map((r) => r.id));
+}
+
 export async function GET(request: NextRequest) {
-  const departmentId = request.nextUrl.searchParams.get("departmentId");
+  const auth = await requireRole(request, ["Dean", "HOD"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
+  const departmentId =
+    auth.user.role === "HOD" ? auth.user.departmentId : request.nextUrl.searchParams.get("departmentId");
+  if (auth.user.role === "HOD" && !departmentId) {
+    return NextResponse.json({ message: "Your account has no department assigned." }, { status: 403 });
+  }
   const facultyId = request.nextUrl.searchParams.get("facultyId");
   const studentId = request.nextUrl.searchParams.get("studentId");
+
+  const allowedFacultyIds = await scopedFacultyIds(auth.user);
   const rows = await db.select().from(studentAllocations);
 
-  let filtered = rows;
-  if (departmentId) {
+  let filtered = rows.filter((r) => allowedFacultyIds.has(r.facultyId));
+  if (departmentId && auth.user.role !== "HOD") {
     const deptFaculty = await db.select({ id: faculty.id }).from(faculty).where(eq(faculty.departmentId, departmentId));
     const deptFacultyIds = new Set(deptFaculty.map((f) => f.id));
     filtered = filtered.filter((r) => deptFacultyIds.has(r.facultyId));
@@ -105,6 +131,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(request, ["Dean", "HOD"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const body = await request.json();
   const { facultyId, studentId, subjectId, active } = body as {
     facultyId?: string;
@@ -117,17 +148,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "facultyId, studentId, and subjectId are required" }, { status: 400 });
   }
 
-  const [deanUser] = await db.select({ id: users.id }).from(users).where(eq(users.role, "Dean")).limit(1);
-  if (!deanUser) {
-    return NextResponse.json(
-      { message: "No Dean account exists to attribute this allocation to. Create one under Super Admin → Deans first." },
-      { status: 500 }
-    );
+  const allowedFacultyIds = await scopedFacultyIds(auth.user);
+  if (!allowedFacultyIds.has(facultyId)) {
+    return NextResponse.json({ message: "Faculty not found" }, { status: 404 });
+  }
+
+  const [studentUser] = await db
+    .select({ institutionId: users.institutionId })
+    .from(students)
+    .innerJoin(users, eq(students.userId, users.id))
+    .where(eq(students.id, studentId));
+  if (!studentUser || studentUser.institutionId !== auth.user.institutionId) {
+    return NextResponse.json({ message: "Student not found" }, { status: 404 });
   }
 
   const [row] = await db
     .insert(studentAllocations)
-    .values({ facultyId, studentId, subjectId, allocatedBy: deanUser.id, active: active ?? true })
+    .values({ facultyId, studentId, subjectId, allocatedBy: auth.user.id, active: active ?? true })
     .returning();
 
   const [embedded] = await embedAllocations([row]);

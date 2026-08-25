@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { students, users } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
+import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
 function toStudent(row: { students: typeof students.$inferSelect; users: typeof users.$inferSelect }) {
   return {
@@ -29,16 +30,32 @@ function toStudent(row: { students: typeof students.$inferSelect; users: typeof 
   };
 }
 
-export async function GET(_request: NextRequest, ctx: RouteContext<"/api/dean/students/[id]">) {
+function inScope(row: { students: typeof students.$inferSelect; users: typeof users.$inferSelect }, user: SessionUser) {
+  if (row.users.institutionId !== user.institutionId) return false;
+  if (user.role === "HOD" && row.users.departmentId !== user.departmentId) return false;
+  return true;
+}
+
+export async function GET(request: NextRequest, ctx: RouteContext<"/api/dean/students/[id]">) {
+  const auth = await requireRole(request, ["Dean", "HOD"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const { id } = await ctx.params;
   const [row] = await db.select().from(students).innerJoin(users, eq(students.userId, users.id)).where(eq(students.id, id));
-  if (!row) {
+  if (!row || !inScope(row, auth.user)) {
     return NextResponse.json({ message: "Student not found" }, { status: 404 });
   }
   return NextResponse.json(toStudent(row));
 }
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/students/[id]">) {
+  const auth = await requireRole(request, ["Dean", "HOD"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const { id } = await ctx.params;
   const body = await request.json();
   const {
@@ -69,10 +86,14 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/s
     status?: "ACTIVE" | "INACTIVE";
   };
 
-  const [existing] = await db.select().from(students).where(eq(students.id, id));
-  if (!existing) {
+  const [existingRow] = await db.select().from(students).innerJoin(users, eq(students.userId, users.id)).where(eq(students.id, id));
+  if (!existingRow || !inScope(existingRow, auth.user)) {
     return NextResponse.json({ message: "Student not found" }, { status: 404 });
   }
+  const existing = existingRow.students;
+
+  // HOD cannot move a student out of their own department.
+  const nextDepartmentId = auth.user.role === "HOD" ? auth.user.departmentId : departmentId;
 
   try {
     const studentUpdates: Partial<typeof students.$inferInsert> = {};
@@ -92,7 +113,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/s
     if (lastName !== undefined) userUpdates.lastName = lastName;
     if (email !== undefined) userUpdates.email = email;
     if (password) userUpdates.passwordHash = hashPassword(password);
-    if (departmentId !== undefined) userUpdates.departmentId = departmentId || null;
+    if (nextDepartmentId !== undefined) userUpdates.departmentId = nextDepartmentId || null;
     if (status !== undefined) userUpdates.status = status;
 
     const [userRow] = Object.keys(userUpdates).length
@@ -108,12 +129,17 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/s
   }
 }
 
-export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/dean/students/[id]">) {
+export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/dean/students/[id]">) {
+  const auth = await requireRole(request, ["Dean", "HOD"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const { id } = await ctx.params;
-  const [existing] = await db.select().from(students).where(eq(students.id, id));
-  if (!existing) {
+  const [existingRow] = await db.select().from(students).innerJoin(users, eq(students.userId, users.id)).where(eq(students.id, id));
+  if (!existingRow || !inScope(existingRow, auth.user)) {
     return NextResponse.json({ message: "Student not found" }, { status: 404 });
   }
-  await db.delete(users).where(eq(users.id, existing.userId));
+  await db.delete(users).where(eq(users.id, existingRow.students.userId));
   return NextResponse.json({ ok: true });
 }

@@ -29,8 +29,8 @@ type AllocationRow = {
 };
 
 export default function StudentAllocationPage() {
-  // Not filtered by departmentId: the mock logged-in user's departmentId
-  // doesn't match real department ids now that this is DB-backed.
+  // Scoping to the caller's institution/department is enforced server-side
+  // in /api/dean/student-allocations based on the session, not on query params here.
   const [data, setData] = useState<AllocationRow[] | undefined>(undefined);
   const [allocationList, setAllocationList] = useState<StudentAllocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);

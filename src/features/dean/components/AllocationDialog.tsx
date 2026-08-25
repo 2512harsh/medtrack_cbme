@@ -168,10 +168,11 @@ export function AllocationDialog({
                         onCheckedChange={() => toggleStudent(s.id)}
                         disabled={isSaving}
                       />
+                      <span className="text-muted-foreground">{s.rollNumber}</span>
                       <span className="font-medium">
                         {s.user ? `${s.user.firstName} ${s.user.lastName}` : s.rollNumber}
                       </span>
-                      <span className="text-muted-foreground">{s.rollNumber}</span>
+                      <span className="text-muted-foreground">{s.batch}</span>
                     </label>
                   ))
                 )}

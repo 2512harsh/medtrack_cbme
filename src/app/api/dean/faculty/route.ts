@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { faculty, users } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
+import { requireRole, requireInstitution } from "@/lib/api-auth";
 
 function toFaculty(row: { faculty: typeof faculty.$inferSelect; users: typeof users.$inferSelect }) {
   return {
@@ -28,25 +29,63 @@ function toFaculty(row: { faculty: typeof faculty.$inferSelect; users: typeof us
 }
 
 export async function GET(request: NextRequest) {
-  const departmentId = request.nextUrl.searchParams.get("departmentId");
-  const query = db.select().from(faculty).innerJoin(users, eq(faculty.userId, users.id));
-  const rows = departmentId ? await query.where(eq(faculty.departmentId, departmentId)) : await query;
+  // Super Admin sees faculty across every institution (e.g. the audit
+  // report); Dean/HOD are scoped to their own institution/department.
+  const auth = await requireRole(request, ["Dean", "HOD", "Super Admin"]);
+  if (!auth.ok) return auth.response;
+
+  const conditions = [];
+
+  if (auth.user.role === "Super Admin") {
+    const institutionId = request.nextUrl.searchParams.get("institutionId");
+    if (institutionId) conditions.push(eq(users.institutionId, institutionId));
+    const departmentId = request.nextUrl.searchParams.get("departmentId");
+    if (departmentId) conditions.push(eq(faculty.departmentId, departmentId));
+  } else {
+    const institutionError = requireInstitution(auth.user);
+    if (institutionError) return institutionError;
+
+    // HOD is always pinned to their own department; Dean may optionally
+    // narrow to one department within their institution via the query param.
+    const departmentId =
+      auth.user.role === "HOD" ? auth.user.departmentId : request.nextUrl.searchParams.get("departmentId");
+    if (auth.user.role === "HOD" && !departmentId) {
+      return NextResponse.json({ message: "Your account has no department assigned." }, { status: 403 });
+    }
+
+    conditions.push(eq(users.institutionId, auth.user.institutionId!));
+    if (departmentId) conditions.push(eq(faculty.departmentId, departmentId));
+  }
+
+  const rows = await db
+    .select()
+    .from(faculty)
+    .innerJoin(users, eq(faculty.userId, users.id))
+    .where(and(...conditions));
   return NextResponse.json(rows.map(toFaculty));
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(request, ["Dean", "HOD"]);
+  if (!auth.ok) return auth.response;
+  const institutionError = requireInstitution(auth.user);
+  if (institutionError) return institutionError;
+
   const body = await request.json();
-  const { firstName, lastName, email, password, departmentId, designation, employeeCode, specialization, status } = body as {
+  const { firstName, lastName, email, password, designation, employeeCode, specialization, status } = body as {
     firstName: string;
     lastName: string;
     email: string;
     password: string;
-    departmentId: string;
+    departmentId?: string;
     designation: string;
     employeeCode: string;
     specialization?: string;
     status?: "ACTIVE" | "INACTIVE";
   };
+
+  // HOD can only create faculty in their own department; Dean must choose one.
+  const departmentId = auth.user.role === "HOD" ? auth.user.departmentId : (body as { departmentId?: string }).departmentId;
 
   if (!firstName || !lastName || !email || !password || !departmentId || !designation || !employeeCode) {
     return NextResponse.json({ message: "Missing required faculty fields" }, { status: 400 });
@@ -62,6 +101,9 @@ export async function POST(request: NextRequest) {
         passwordHash: hashPassword(password),
         role: "Faculty",
         status: status ?? "ACTIVE",
+        // Institution is never taken from the client — faculty is always
+        // created under the creating Dean/HOD's own institution.
+        institutionId: auth.user.institutionId,
         departmentId,
       })
       .returning();

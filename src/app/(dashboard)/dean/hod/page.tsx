@@ -216,7 +216,6 @@ export default function HodManagementPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         hod={editingHod}
-        institutions={institutions}
         departments={departments}
         isSaving={isSaving}
         onSave={handleSave}

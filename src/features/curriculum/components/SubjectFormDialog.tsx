@@ -31,6 +31,10 @@ interface SubjectFormDialogProps {
   departments: Department[];
   isSaving: boolean;
   onSave: (values: SubjectFormValues) => void | Promise<void>;
+  // Set for HOD: the server force-assigns new/edited subjects to this
+  // department regardless of what's submitted, so the field is locked here
+  // too — otherwise the dropdown implies a choice that's silently discarded.
+  lockedDepartmentId?: string;
 }
 
 export function SubjectFormDialog({
@@ -41,6 +45,7 @@ export function SubjectFormDialog({
   departments,
   isSaving,
   onSave,
+  lockedDepartmentId,
 }: SubjectFormDialogProps) {
   const [values, setValues] = useState<SubjectFormValues>({
     name: "",
@@ -56,11 +61,11 @@ export function SubjectFormDialog({
         name: subject?.name ?? "",
         code: subject?.code ?? "",
         professionalYearId: subject?.professionalYearId ?? professionalYears[0]?.id ?? "",
-        departmentId: subject?.departmentId ?? departments[0]?.id ?? "",
+        departmentId: lockedDepartmentId ?? subject?.departmentId ?? departments[0]?.id ?? "",
       });
       setError(null);
     }
-  }, [open, subject, professionalYears, departments]);
+  }, [open, subject, professionalYears, departments, lockedDepartmentId]);
 
   const set = (key: keyof SubjectFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -87,7 +92,7 @@ export function SubjectFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Subject Name *</Label>
               <Input
@@ -110,7 +115,7 @@ export function SubjectFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="professionalYear">Professional Year *</Label>
               <Select
@@ -137,7 +142,7 @@ export function SubjectFormDialog({
                 items={departments.map((d) => ({ value: d.id, label: d.name }))}
                 value={values.departmentId}
                 onValueChange={(v) => set("departmentId", v ?? "")}
-                disabled={isSaving}
+                disabled={isSaving || !!lockedDepartmentId}
               >
                 <SelectTrigger id="department">
                   <SelectValue placeholder="Select a department" />
@@ -150,6 +155,11 @@ export function SubjectFormDialog({
                   ))}
                 </SelectContent>
               </Select>
+              {lockedDepartmentId && (
+                <p className="text-xs text-muted-foreground">
+                  Locked to your own department.
+                </p>
+              )}
             </div>
           </div>
 

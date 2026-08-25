@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
-import type { Department, Institution } from "@/types";
+import type { Department } from "@/types";
 import type { HodAccount } from "@/features/super-admin/mock/superAdmin";
 
 export interface HodFormValues {
@@ -22,7 +22,6 @@ export interface HodFormValues {
   lastName: string;
   email: string;
   password: string;
-  institutionId: string;
   departmentId: string;
   status: "ACTIVE" | "INACTIVE";
 }
@@ -31,7 +30,6 @@ interface HodFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hod?: HodAccount | null;
-  institutions: Institution[];
   departments: Department[];
   isSaving: boolean;
   onSave: (values: HodFormValues) => void | Promise<void>;
@@ -41,7 +39,6 @@ export function HodFormDialog({
   open,
   onOpenChange,
   hod,
-  institutions,
   departments,
   isSaving,
   onSave,
@@ -51,7 +48,6 @@ export function HodFormDialog({
     lastName: "",
     email: "",
     password: "",
-    institutionId: "",
     departmentId: "",
     status: "ACTIVE",
   });
@@ -64,13 +60,12 @@ export function HodFormDialog({
         lastName: hod?.lastName ?? "",
         email: hod?.email ?? "",
         password: "",
-        institutionId: hod?.institutionId ?? institutions[0]?.id ?? "",
         departmentId: hod?.departmentId ?? departments[0]?.id ?? "",
         status: hod?.status ?? "ACTIVE",
       });
       setError(null);
     }
-  }, [open, hod, institutions, departments]);
+  }, [open, hod, departments]);
 
   const set = (key: keyof HodFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -82,7 +77,6 @@ export function HodFormDialog({
       !values.lastName ||
       !values.email ||
       (!hod && !values.password) ||
-      !values.institutionId ||
       !values.departmentId
     ) {
       setError("Please fill in all required fields.");
@@ -104,7 +98,7 @@ export function HodFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name *</Label>
               <Input
@@ -152,28 +146,7 @@ export function HodFormDialog({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="institution">Institution *</Label>
-            <Select
-              items={institutions.map((i) => ({ value: i.id, label: i.name }))}
-              value={values.institutionId}
-              onValueChange={(v) => set("institutionId", v ?? "")}
-              disabled={isSaving}
-            >
-              <SelectTrigger id="institution">
-                <SelectValue placeholder="Select an institution" />
-              </SelectTrigger>
-              <SelectContent>
-                {institutions.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>
-                    {i.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="department">Department *</Label>
               <Select

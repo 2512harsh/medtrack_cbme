@@ -18,6 +18,12 @@ const ROLE_PREFIXES: { prefix: string; roles: UserRole[] }[] = [
   { prefix: "/dashboard/super-admin", roles: ["Super Admin"] },
   { prefix: "/dean", roles: ["Dean", "HOD"] },
   { prefix: "/dashboard/dean", roles: ["Dean", "HOD"] },
+  { prefix: "/curriculum/professional-years", roles: ["Super Admin", "Dean"] },
+  // Bulk competency import isn't department-scoped (it can create content
+  // under any subject), so it's restricted to Super Admin/Dean — HOD is
+  // locked to their own department everywhere else and shouldn't have a
+  // side door around that here.
+  { prefix: "/curriculum/import", roles: ["Super Admin", "Dean"] },
   { prefix: "/faculty", roles: ["Faculty"] },
   { prefix: "/dashboard/faculty", roles: ["Faculty"] },
   { prefix: "/student", roles: ["Student"] },

@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { getStreams, getProfessionalYears } from "@/features/curriculum/services/curriculum";
-import type { ProfessionalYear, Stream, Student } from "@/types";
+import type { Department, ProfessionalYear, Stream, Student } from "@/types";
 
 export interface StudentFormValues {
   firstName: string;
@@ -26,6 +26,7 @@ export interface StudentFormValues {
   registrationNumber: string;
   streamId: string;
   professionalYearId: string;
+  departmentId: string;
   batch: string;
   admissionYear: number;
   status: "ACTIVE" | "INACTIVE";
@@ -35,16 +36,23 @@ interface StudentFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   student?: Student | null;
+  departments: Department[];
   isSaving: boolean;
   onSave: (values: StudentFormValues) => void | Promise<void>;
+  // Set for HOD: the server force-assigns new/edited students to this
+  // department regardless of what's submitted, so the field is locked here
+  // too — otherwise the dropdown implies a choice that's silently discarded.
+  lockedDepartmentId?: string;
 }
 
 export function StudentFormDialog({
   open,
   onOpenChange,
   student,
+  departments,
   isSaving,
   onSave,
+  lockedDepartmentId,
 }: StudentFormDialogProps) {
   const [values, setValues] = useState<StudentFormValues>({
     firstName: "",
@@ -55,6 +63,7 @@ export function StudentFormDialog({
     registrationNumber: "",
     streamId: "",
     professionalYearId: "",
+    departmentId: "",
     batch: "",
     admissionYear: new Date().getFullYear(),
     status: "ACTIVE",
@@ -82,13 +91,14 @@ export function StudentFormDialog({
         registrationNumber: student?.registrationNumber ?? "",
         streamId: student?.streamId ?? "",
         professionalYearId: student?.professionalYearId ?? "",
+        departmentId: lockedDepartmentId ?? student?.user?.departmentId ?? departments[0]?.id ?? "",
         batch: student?.batch ?? "",
         admissionYear: student?.admissionYear ?? new Date().getFullYear(),
         status: student?.user?.status ?? "ACTIVE",
       });
       setError(null);
     }
-  }, [open, student]);
+  }, [open, student, departments, lockedDepartmentId]);
 
   const set = <K extends keyof StudentFormValues>(key: K, value: StudentFormValues[K]) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -104,6 +114,7 @@ export function StudentFormDialog({
       !values.registrationNumber ||
       !values.streamId ||
       !values.professionalYearId ||
+      !values.departmentId ||
       !values.batch ||
       !values.admissionYear
     ) {
@@ -126,7 +137,7 @@ export function StudentFormDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name *</Label>
               <Input
@@ -174,7 +185,7 @@ export function StudentFormDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="rollNumber">Roll Number *</Label>
               <Input
@@ -197,7 +208,7 @@ export function StudentFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="stream">Stream *</Label>
               <Select
@@ -250,7 +261,50 @@ export function StudentFormDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="department">Department *</Label>
+              <Select
+                items={departments.map((d) => ({ value: d.id, label: d.name }))}
+                value={values.departmentId}
+                onValueChange={(v) => set("departmentId", v ?? "")}
+                disabled={isSaving || !!lockedDepartmentId}
+              >
+                <SelectTrigger id="department">
+                  <SelectValue placeholder="Select a department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {lockedDepartmentId && (
+                <p className="text-xs text-muted-foreground">Locked to your own department.</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status">Status *</Label>
+              <Select
+                items={{ ACTIVE: "Active", INACTIVE: "Inactive" }}
+                value={values.status}
+                onValueChange={(v) => set("status", (v as "ACTIVE" | "INACTIVE") ?? "ACTIVE")}
+                disabled={isSaving}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="INACTIVE">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="batch">Batch *</Label>
               <Input
