@@ -98,8 +98,17 @@ async function scopedFacultyIds(user: SessionUser): Promise<Set<string>> {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(request, ["Dean", "HOD"]);
+  // Faculty only ever sees their own allocations, regardless of query params.
+  const auth = await requireRole(request, ["Dean", "HOD", "Faculty"]);
   if (!auth.ok) return auth.response;
+
+  if (auth.user.role === "Faculty") {
+    const [ownFaculty] = await db.select({ id: faculty.id }).from(faculty).where(eq(faculty.userId, auth.user.id));
+    if (!ownFaculty) return NextResponse.json([]);
+    const rows = await db.select().from(studentAllocations).where(eq(studentAllocations.facultyId, ownFaculty.id));
+    return NextResponse.json(await embedAllocations(rows));
+  }
+
   const institutionError = requireInstitution(auth.user);
   if (institutionError) return institutionError;
 
