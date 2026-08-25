@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
 
+
 function toDean(row: typeof users.$inferSelect) {
   return {
     id: row.id,
