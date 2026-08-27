@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { students, users } from "@/db/schema";
+import { students, users, batches } from "@/db/schema";
 import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/session";
 
 export async function GET(request: NextRequest) {
@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "No Student account is linked to this login." }, { status: 404 });
   }
 
+  const [batchRow] = await db.select().from(batches).where(eq(batches.id, row.students.batchId));
+
   return NextResponse.json({
     id: row.students.id,
     userId: row.students.userId,
@@ -27,7 +29,8 @@ export async function GET(request: NextRequest) {
     registrationNumber: row.students.registrationNumber,
     streamId: row.students.streamId,
     professionalYearId: row.students.professionalYearId,
-    batch: row.students.batch,
+    batchId: row.students.batchId,
+    batch: batchRow?.name ?? "",
     admissionYear: row.students.admissionYear,
     user: {
       id: row.users.id,

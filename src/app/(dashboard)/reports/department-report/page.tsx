@@ -3,26 +3,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, Users, GraduationCap } from "lucide-react";
-import { getDepartmentReportData } from "@/features/reports/services/reports";
+import { getDepartmentReport, type DepartmentReportRow } from "@/features/dean/services/dean";
 import { AsyncContent } from "@/components/shared/AsyncContent";
-import type { mockDepartmentReportData } from "@/features/reports/mock/reports";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiGrid } from "@/components/layout/KpiGrid";
 import { StatCard } from "@/components/shared/StatCard";
 import { FilterBar } from "@/components/tables/FilterBar";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
-type DepartmentReportData = typeof mockDepartmentReportData;
 
-type DepartmentRow = {
-  id: string;
-  name: string;
-  faculty: number;
-  students: number;
-  completed: number;
-  total: number;
-  progress: number;
-};
+type DepartmentReportData = Awaited<ReturnType<typeof getDepartmentReport>>;
+type DepartmentRow = DepartmentReportRow;
 
 export default function DepartmentReportPage() {
   const [data, setData] = useState<DepartmentReportData | undefined>(undefined);
@@ -34,7 +25,10 @@ export default function DepartmentReportPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const result = await getDepartmentReportData();
+      // Faculty/students/assignments underneath are already scoped server-side
+      // (Dean -> own institution, HOD -> own department), so an HOD here
+      // naturally only ever sees their own department's row.
+      const result = await getDepartmentReport();
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load department report"));
@@ -89,6 +83,7 @@ export default function DepartmentReportPage() {
       <PageHeader
         title="Department Report"
         description="Overview of department performance"
+        dataSource="live"
       />
 
       <AsyncContent

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { competencyAssignments, faculty, users, competencies, subtopics, topics, subjects } from "@/db/schema";
+import { competencyAssignments, faculty, users, competencies, subtopics, topics, subjects, batches } from "@/db/schema";
 import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
 async function embedAssignment(row: typeof competencyAssignments.$inferSelect) {
@@ -11,6 +11,7 @@ async function embedAssignment(row: typeof competencyAssignments.$inferSelect) {
     .innerJoin(users, eq(faculty.userId, users.id))
     .where(eq(faculty.id, row.facultyId));
   const [competency] = await db.select().from(competencies).where(eq(competencies.id, row.competencyId));
+  const [batchRow] = await db.select().from(batches).where(eq(batches.id, row.batchId));
 
   let subjectName: string | undefined;
   if (competency) {
@@ -24,6 +25,7 @@ async function embedAssignment(row: typeof competencyAssignments.$inferSelect) {
 
   return {
     ...row,
+    batch: batchRow?.name ?? "",
     faculty: facultyRow && {
       id: facultyRow.faculty.id,
       userId: facultyRow.faculty.userId,
@@ -88,20 +90,27 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/c
   }
 
   const body = await request.json();
-  const { facultyId, competencyId, batch } = body as {
+  const { facultyId, competencyId, batchId } = body as {
     facultyId?: string;
     competencyId?: string;
-    batch?: string;
+    batchId?: string;
   };
 
   if (facultyId && !(await facultyInScope(facultyId, auth.user))) {
     return NextResponse.json({ message: "Faculty not found" }, { status: 404 });
   }
 
+  if (batchId) {
+    const [batchRow] = await db.select().from(batches).where(eq(batches.id, batchId));
+    if (!batchRow || batchRow.institutionId !== auth.user.institutionId) {
+      return NextResponse.json({ message: "Batch not found" }, { status: 404 });
+    }
+  }
+
   const updates: Partial<typeof competencyAssignments.$inferInsert> = {};
   if (facultyId) updates.facultyId = facultyId;
   if (competencyId) updates.competencyId = competencyId;
-  if (batch) updates.batch = batch;
+  if (batchId) updates.batchId = batchId;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ message: "No fields to update" }, { status: 400 });

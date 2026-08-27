@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { studentAllocations, faculty, students, subjects, users } from "@/db/schema";
+import { studentAllocations, faculty, students, subjects, users, batches } from "@/db/schema";
 import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
 async function embedAllocations(rows: (typeof studentAllocations.$inferSelect)[]) {
@@ -22,6 +22,11 @@ async function embedAllocations(rows: (typeof studentAllocations.$inferSelect)[]
     .innerJoin(users, eq(students.userId, users.id))
     .where(inArray(students.id, studentIds));
   const subjectRows = await db.select().from(subjects).where(inArray(subjects.id, subjectIds));
+  const batchRows = await db
+    .select()
+    .from(batches)
+    .where(inArray(batches.id, [...new Set(studentRows.map((r) => r.students.batchId))]));
+  const batchNameById = new Map(batchRows.map((b) => [b.id, b.name]));
 
   const facultyById = new Map(
     facultyRows.map((r) => [
@@ -57,7 +62,8 @@ async function embedAllocations(rows: (typeof studentAllocations.$inferSelect)[]
         registrationNumber: r.students.registrationNumber,
         streamId: r.students.streamId,
         professionalYearId: r.students.professionalYearId,
-        batch: r.students.batch,
+        batchId: r.students.batchId,
+        batch: batchNameById.get(r.students.batchId) ?? "",
         admissionYear: r.students.admissionYear,
         user: {
           id: r.users.id,

@@ -1,13 +1,12 @@
 "use client";
 
 import { SectionTabs } from "@/components/layout/SectionTabs";
-import { Clock, RefreshCw, ArrowRightLeft, Bell, Shield } from "lucide-react";
+import { Clock, RefreshCw, ArrowRightLeft, Shield } from "lucide-react";
 
 const navigation = [
   { href: "/assessment/attempt-timeline", label: "Attempt Timeline", icon: Clock },
   { href: "/assessment/remediation-workflow", label: "Remediation Workflow", icon: RefreshCw },
   { href: "/assessment/status-transitions", label: "Status Transitions", icon: ArrowRightLeft },
-  { href: "/assessment/notifications", label: "Notifications", icon: Bell },
   { href: "/assessment/audit-display", label: "Audit Display", icon: Shield },
 ];
 

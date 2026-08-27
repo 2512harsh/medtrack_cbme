@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { studentAllocations, faculty, students, subjects, users } from "@/db/schema";
+import { studentAllocations, faculty, students, subjects, users, batches } from "@/db/schema";
 import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
 async function embedAllocation(row: typeof studentAllocations.$inferSelect) {
@@ -16,6 +16,9 @@ async function embedAllocation(row: typeof studentAllocations.$inferSelect) {
     .innerJoin(users, eq(students.userId, users.id))
     .where(eq(students.id, row.studentId));
   const [subjectRow] = await db.select().from(subjects).where(eq(subjects.id, row.subjectId));
+  const [batchRow] = studentRow
+    ? await db.select().from(batches).where(eq(batches.id, studentRow.students.batchId))
+    : [];
 
   return {
     ...row,
@@ -45,7 +48,8 @@ async function embedAllocation(row: typeof studentAllocations.$inferSelect) {
       registrationNumber: studentRow.students.registrationNumber,
       streamId: studentRow.students.streamId,
       professionalYearId: studentRow.students.professionalYearId,
-      batch: studentRow.students.batch,
+      batchId: studentRow.students.batchId,
+      batch: batchRow?.name ?? "",
       admissionYear: studentRow.students.admissionYear,
       user: {
         id: studentRow.users.id,

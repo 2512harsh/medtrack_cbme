@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, inArray, and } from "drizzle-orm";
 import { db } from "@/db";
-import { assessments, students, users, competencyAssignments, competencies } from "@/db/schema";
+import { assessments, students, users, competencyAssignments, competencies, batches } from "@/db/schema";
 
 async function embedAssessments(rows: (typeof assessments.$inferSelect)[]) {
   if (rows.length === 0) return [];
@@ -14,6 +14,11 @@ async function embedAssessments(rows: (typeof assessments.$inferSelect)[]) {
     .from(students)
     .innerJoin(users, eq(students.userId, users.id))
     .where(inArray(students.id, studentIds));
+  const batchRows = await db
+    .select()
+    .from(batches)
+    .where(inArray(batches.id, [...new Set(studentRows.map((r) => r.students.batchId))]));
+  const batchNameById = new Map(batchRows.map((b) => [b.id, b.name]));
   const assignmentRows = await db
     .select()
     .from(competencyAssignments)
@@ -31,7 +36,8 @@ async function embedAssessments(rows: (typeof assessments.$inferSelect)[]) {
         registrationNumber: r.students.registrationNumber,
         streamId: r.students.streamId,
         professionalYearId: r.students.professionalYearId,
-        batch: r.students.batch,
+        batchId: r.students.batchId,
+        batch: batchNameById.get(r.students.batchId) ?? "",
         admissionYear: r.students.admissionYear,
         user: {
           id: r.users.id,

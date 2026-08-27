@@ -1,4 +1,4 @@
-import type { Faculty, Student, StudentAllocation, CompetencyAssignment, Department, Assessment } from "@/types";
+import type { Faculty, Student, StudentAllocation, CompetencyAssignment, Department, Assessment, Batch } from "@/types";
 import type { HodAccount } from "@/features/super-admin/mock/superAdmin";
 
 async function apiGet<T>(url: string): Promise<T> {
@@ -53,6 +53,15 @@ export function updateHodAccount(id: string, data: Partial<HodAccount>): Promise
 
 export function deactivateHodAccount(id: string): Promise<HodAccount> {
   return updateHodAccount(id, { status: "INACTIVE" });
+}
+
+export function getBatches(streamId?: string): Promise<Batch[]> {
+  const url = streamId ? `/api/batches?streamId=${encodeURIComponent(streamId)}` : "/api/batches";
+  return apiGet<Batch[]>(url);
+}
+
+export function createBatch(data: Pick<Batch, "name" | "streamId" | "admissionYear">): Promise<Batch> {
+  return apiSend<Batch>("/api/batches", "POST", data);
 }
 
 export function getFaculty(departmentId?: string): Promise<Faculty[]> {
@@ -149,7 +158,7 @@ function flattenStudent(data: Partial<Student>, password?: string) {
     registrationNumber: data.registrationNumber,
     streamId: data.streamId,
     professionalYearId: data.professionalYearId,
-    batch: data.batch,
+    batchId: data.batchId,
     admissionYear: data.admissionYear,
     firstName: data.user?.firstName,
     lastName: data.user?.lastName,
@@ -160,8 +169,40 @@ function flattenStudent(data: Partial<Student>, password?: string) {
   };
 }
 
-export function createStudent(data: Omit<Student, "id">, password: string): Promise<Student> {
+export function createStudent(data: Omit<Student, "id" | "batch">, password: string): Promise<Student> {
   return apiSend<Student>("/api/dean/students", "POST", flattenStudent(data, password));
+}
+
+export interface StudentImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: { row: number; sheet: string; message: string }[];
+  credentials: { email: string; password: string }[];
+}
+
+export interface StudentImportRow {
+  firstName: string;
+  lastName?: string;
+  email: string;
+  rollNumber: string;
+  registrationNumber: string;
+  stream: string;
+  professionalYear: string;
+  batch: string;
+  admissionYear?: string;
+  department?: string;
+  password?: string;
+  sheet?: string;
+  rowNumber?: number;
+}
+
+export function importStudents(
+  defaultDepartmentId: string | undefined,
+  mode: "insert" | "update" | "upsert",
+  rows: StudentImportRow[]
+): Promise<StudentImportResult> {
+  return apiSend<StudentImportResult>("/api/dean/students/import", "POST", { defaultDepartmentId, mode, rows });
 }
 
 export function updateStudent(id: string, data: Partial<Student>, password?: string): Promise<Student> {
@@ -180,13 +221,15 @@ export function reassignStudentAllocation(id: string, newFacultyId: string): Pro
   return apiSend<StudentAllocation>(`/api/dean/student-allocations/${id}`, "PATCH", { facultyId: newFacultyId });
 }
 
-export function assignCompetency(data: Omit<CompetencyAssignment, "id" | "assignedBy" | "assignedDate">): Promise<CompetencyAssignment> {
+export function assignCompetency(
+  data: Omit<CompetencyAssignment, "id" | "assignedBy" | "assignedDate" | "batch">
+): Promise<CompetencyAssignment> {
   return apiSend<CompetencyAssignment>("/api/dean/competency-assignments", "POST", data);
 }
 
 export function updateCompetencyAssignment(
   id: string,
-  data: Partial<Pick<CompetencyAssignment, "facultyId" | "competencyId" | "batch">>
+  data: Partial<Pick<CompetencyAssignment, "facultyId" | "competencyId" | "batchId">>
 ): Promise<CompetencyAssignment> {
   return apiSend<CompetencyAssignment>(`/api/dean/competency-assignments/${id}`, "PATCH", data);
 }
@@ -246,4 +289,72 @@ export async function getDepartmentWiseProgress(): Promise<{ department: string;
   }
 
   return departments.map((d) => ({ department: d.name, ...(totalsByDepartmentId.get(d.id) ?? { completed: 0, total: 0 }) }));
+}
+
+export interface DepartmentReportRow {
+  id: string;
+  name: string;
+  faculty: number;
+  students: number;
+  completed: number;
+  total: number;
+  progress: number;
+}
+
+// Faculty/students/assignments below are already scoped server-side to the
+// caller (Dean -> own institution, HOD -> own department), so the department
+// breakdown naturally comes out right per role with no extra filtering here:
+// an HOD's facultyList/studentList only ever contain their own department,
+// so `relevantDepartmentIds` collapses to just that one department.
+export async function getDepartmentReport(): Promise<{
+  summary: { totalDepartments: number; totalFaculty: number; totalStudents: number };
+  departments: DepartmentReportRow[];
+}> {
+  const [allDepartments, facultyList, studentList, assignments, assessmentsList] = await Promise.all([
+    getDepartments(),
+    getFaculty(),
+    getStudents(),
+    getCompetencyAssignments(),
+    getAssessments(),
+  ]);
+  const counts = assessmentCountsByAssignment(assessmentsList);
+
+  const relevantDepartmentIds = new Set<string>();
+  facultyList.forEach((f) => f.departmentId && relevantDepartmentIds.add(f.departmentId));
+  studentList.forEach((s) => s.user?.departmentId && relevantDepartmentIds.add(s.user.departmentId));
+
+  const rows: DepartmentReportRow[] = allDepartments
+    .filter((d) => relevantDepartmentIds.has(d.id))
+    .map((d) => {
+      const deptFaculty = facultyList.filter((f) => f.departmentId === d.id).length;
+      const deptStudents = studentList.filter((s) => s.user?.departmentId === d.id).length;
+      const deptAssignments = assignments.filter((a) => a.faculty?.departmentId === d.id);
+
+      let completed = 0;
+      let total = 0;
+      for (const a of deptAssignments) {
+        const c = counts.get(a.id) ?? { completed: 0, total: 0 };
+        completed += c.completed;
+        total += c.total;
+      }
+
+      return {
+        id: d.id,
+        name: d.name,
+        faculty: deptFaculty,
+        students: deptStudents,
+        completed,
+        total,
+        progress: total > 0 ? Math.round((completed / total) * 100) : 0,
+      };
+    });
+
+  return {
+    summary: {
+      totalDepartments: rows.length,
+      totalFaculty: rows.reduce((sum, r) => sum + r.faculty, 0),
+      totalStudents: rows.reduce((sum, r) => sum + r.students, 0),
+    },
+    departments: rows,
+  };
 }

@@ -114,6 +114,20 @@ export const professionalYears = pgTable("professional_years", {
   sequence: integer("sequence").notNull(),
 });
 
+export const batches = pgTable("batches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  institutionId: uuid("institution_id")
+    .notNull()
+    .references(() => institutions.id, { onDelete: "cascade" }),
+  streamId: uuid("stream_id")
+    .notNull()
+    .references(() => streams.id, { onDelete: "restrict" }),
+  name: text("name").notNull(),
+  admissionYear: integer("admission_year").notNull(),
+  status: userStatusEnum("status").default("ACTIVE"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const students = pgTable("students", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id")
@@ -127,7 +141,9 @@ export const students = pgTable("students", {
   professionalYearId: uuid("professional_year_id")
     .notNull()
     .references(() => professionalYears.id, { onDelete: "restrict" }),
-  batch: text("batch").notNull(),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id, { onDelete: "restrict" }),
   admissionYear: integer("admission_year").notNull(),
 });
 
@@ -223,7 +239,9 @@ export const competencyAssignments = pgTable("competency_assignments", {
   competencyId: uuid("competency_id")
     .notNull()
     .references(() => competencies.id, { onDelete: "cascade" }),
-  batch: text("batch").notNull(),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id, { onDelete: "restrict" }),
   assignedBy: uuid("assigned_by")
     .notNull()
     .references(() => users.id, { onDelete: "set null" }),

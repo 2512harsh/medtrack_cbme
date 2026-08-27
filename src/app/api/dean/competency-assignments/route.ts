@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { competencyAssignments, faculty, users, competencies, subtopics, topics, subjects, students, assessments } from "@/db/schema";
+import { competencyAssignments, faculty, users, competencies, subtopics, topics, subjects, students, assessments, batches } from "@/db/schema";
 import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
 async function embedAssignments(rows: (typeof competencyAssignments.$inferSelect)[]) {
@@ -9,7 +9,7 @@ async function embedAssignments(rows: (typeof competencyAssignments.$inferSelect
 
   const facultyIds = [...new Set(rows.map((r) => r.facultyId))];
   const competencyIds = [...new Set(rows.map((r) => r.competencyId))];
-  const batches = [...new Set(rows.map((r) => r.batch))];
+  const batchIds = [...new Set(rows.map((r) => r.batchId))];
 
   const [
     facultyRows,
@@ -17,6 +17,7 @@ async function embedAssignments(rows: (typeof competencyAssignments.$inferSelect
     subtopicRows,
     topicRows,
     subjectRows,
+    batchRows,
     studentRows,
     assessmentRows,
   ] = await Promise.all([
@@ -25,9 +26,11 @@ async function embedAssignments(rows: (typeof competencyAssignments.$inferSelect
     db.select().from(subtopics),
     db.select().from(topics),
     db.select().from(subjects),
-    db.select().from(students).where(inArray(students.batch, batches)),
+    db.select().from(batches).where(inArray(batches.id, batchIds)),
+    db.select().from(students).where(inArray(students.batchId, batchIds)),
     db.select().from(assessments).where(inArray(assessments.competencyAssignmentId, rows.map((r) => r.id))),
   ]);
+  const batchNameById = new Map(batchRows.map((b) => [b.id, b.name]));
 
   const facultyById = new Map(
     facultyRows.map((r) => [
@@ -70,7 +73,7 @@ async function embedAssignments(rows: (typeof competencyAssignments.$inferSelect
 
   const studentCountByBatch = new Map<string, number>();
   for (const s of studentRows) {
-    studentCountByBatch.set(s.batch, (studentCountByBatch.get(s.batch) ?? 0) + 1);
+    studentCountByBatch.set(s.batchId, (studentCountByBatch.get(s.batchId) ?? 0) + 1);
   }
 
   const completedCountByAssignmentId = new Map<string, number>();
@@ -84,10 +87,11 @@ async function embedAssignments(rows: (typeof competencyAssignments.$inferSelect
   }
 
   return rows.map((r) => {
-    const totalStudents = studentCountByBatch.get(r.batch) ?? 0;
+    const totalStudents = studentCountByBatch.get(r.batchId) ?? 0;
     const completed = completedCountByAssignmentId.get(r.id) ?? 0;
     return {
       ...r,
+      batch: batchNameById.get(r.batchId) ?? "",
       faculty: facultyById.get(r.facultyId),
       competency: competencyById.get(r.competencyId),
       pendingCount: Math.max(totalStudents - completed, 0),
@@ -131,7 +135,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Your account has no department assigned." }, { status: 403 });
   }
   const facultyId = request.nextUrl.searchParams.get("facultyId");
-  const batch = request.nextUrl.searchParams.get("batch");
+  const batchId = request.nextUrl.searchParams.get("batchId");
 
   const allowedFacultyIds = await scopedFacultyIds(auth.user);
   const rows = await db.select().from(competencyAssignments);
@@ -145,8 +149,8 @@ export async function GET(request: NextRequest) {
   if (facultyId) {
     filtered = filtered.filter((r) => r.facultyId === facultyId);
   }
-  if (batch) {
-    filtered = filtered.filter((r) => r.batch === batch);
+  if (batchId) {
+    filtered = filtered.filter((r) => r.batchId === batchId);
   }
 
   return NextResponse.json(await embedAssignments(filtered));
@@ -159,10 +163,10 @@ export async function POST(request: NextRequest) {
   if (institutionError) return institutionError;
 
   const body = await request.json();
-  const { facultyId, competencyId, batch } = body as { facultyId?: string; competencyId?: string; batch?: string };
+  const { facultyId, competencyId, batchId } = body as { facultyId?: string; competencyId?: string; batchId?: string };
 
-  if (!facultyId || !competencyId || !batch) {
-    return NextResponse.json({ message: "facultyId, competencyId, and batch are required" }, { status: 400 });
+  if (!facultyId || !competencyId || !batchId) {
+    return NextResponse.json({ message: "facultyId, competencyId, and batchId are required" }, { status: 400 });
   }
 
   const allowedFacultyIds = await scopedFacultyIds(auth.user);
@@ -170,9 +174,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "Faculty not found" }, { status: 404 });
   }
 
+  const [batchRow] = await db.select().from(batches).where(eq(batches.id, batchId));
+  if (!batchRow || batchRow.institutionId !== auth.user.institutionId) {
+    return NextResponse.json({ message: "Batch not found" }, { status: 404 });
+  }
+
   const [row] = await db
     .insert(competencyAssignments)
-    .values({ facultyId, competencyId, batch, assignedBy: auth.user.id })
+    .values({ facultyId, competencyId, batchId, assignedBy: auth.user.id })
     .returning();
 
   const [embedded] = await embedAssignments([row]);

@@ -13,7 +13,6 @@ import {
   GraduationCap,
   ClipboardList,
   BarChart3,
-  Bell,
   Settings,
   ChevronRight,
   X,
@@ -53,6 +52,7 @@ const navigation = [
     children: [
       { title: "Streams", href: "/curriculum/streams", roles: ["Super Admin"] },
       { title: "Professional Years", href: "/curriculum/professional-years", roles: ["Super Admin", "Dean"] },
+      { title: "Batches", href: "/curriculum/batches", roles: ["Dean", "HOD"] },
       { title: "Subjects", href: "/curriculum/subjects", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
       { title: "Topics", href: "/curriculum/topics", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
       { title: "Competencies", href: "/curriculum/competencies", roles: ["Super Admin", "Dean", "HOD", "Faculty", "Student"] },
@@ -124,12 +124,6 @@ const navigation = [
       { title: "Assignments", href: "/dean/competency-assignment", roles: ["Dean", "HOD", "Faculty"] },
       { title: "Question Templates", href: "/dean/templates", roles: ["Dean", "HOD"] },
     ],
-  },
-  {
-    title: "Notifications",
-    href: "/assessment/notifications",
-    icon: Bell,
-    roles: ["Super Admin", "HOD", "Faculty", "Student"],
   },
   {
     title: "Settings",

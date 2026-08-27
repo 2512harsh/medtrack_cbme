@@ -87,14 +87,14 @@ export default function CompetencyAssignmentPage() {
         await updateCompetencyAssignment(editingAssignment.id, {
           facultyId: values.facultyId,
           competencyId: values.competencyId,
-          batch: values.batch,
+          batchId: values.batchId,
         });
         toast.success("Competency assignment updated");
       } else {
         await assignCompetency({
           facultyId: values.facultyId,
           competencyId: values.competencyId,
-          batch: values.batch,
+          batchId: values.batchId,
         });
         toast.success("Competency assigned to faculty");
       }

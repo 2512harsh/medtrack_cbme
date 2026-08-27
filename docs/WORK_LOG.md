@@ -13,10 +13,10 @@ This file tracks frontend development progress. Read it before every development
 
 | Field | Value |
 |---|---|
-| Project State | Phase 10 Complete |
-| Current Phase | All Phases Complete |
-| Current Task | None - Development complete |
-| Overall Progress | 100% |
+| Project State | Phase 10 Complete + Live DB Integration (Session 28) |
+| Current Phase | All UI phases complete; curriculum, dean, auth, and assessment modules now backed by real Postgres/Drizzle DB (see Session 27-28) |
+| Current Task | None - awaiting next task |
+| Overall Progress | 100% UI, backend integration in progress (curriculum/dean/auth/assessment live; some Super Admin areas may still be mock) |
 
 ## Phase Progress
 
@@ -820,6 +820,28 @@ Per "do what's best" for the QA/polish phase, eliminated the entire remaining li
 Files modified (pages): streams, professional-years, subjects, subjects/[id], topics, topics/[id], competencies, competencies/[id], templates, audit-display, hod students/faculty/faculty-assignment/competency-assignment/allocations/allocation-history + [id]s, faculty assigned-students/assigned-competencies/assessment-queue/assessment-detail + [id], student assessment-history/my-competencies/evidence/response/[id], super-admin institutions/departments/hod-accounts/competency-import + [id]s, dashboard, dashboard/hod, curriculum/hod/faculty/settings layouts, settings profile/appearance/notifications/security.
 
 Files modified (shared/features): src/components/tables/DataTable.tsx, Pagination.tsx, FilterBar.tsx, src/components/layout/AppShell.tsx, src/features/curriculum/mock/curriculum.ts, src/features/curriculum/services/curriculum.ts, src/features/faculty/mock/faculty.ts.
+
+**Session 27 (2026-08-19 to 2026-08-23):** Live Database Integration (branches `db-setup`, `bulk-import`, PRs #6-#9)
+
+Moved the app off mock data onto a real Postgres/Drizzle backend and wired real auth, module by module. Was mock-only before this session ([[Super Admin mock data]] / [[Bulk import (competency)]]).
+
+- Drizzle setup: `src/db/schema.ts` (full schema, 289 lines), `src/db/index.ts`, `src/db/seed.ts`, `drizzle.config.ts`.
+- Real auth: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`, `src/lib/session.ts`, `src/lib/password.ts`; session read in `src/proxy.ts`.
+- Curriculum module went fully live: API routes for competencies, subjects, topics, subtopics, professional-years, streams, departments, plus a real `/api/curriculum/import` route backing `src/features/curriculum/lib/parseImportFile.ts` (real file parsing for bulk competency import, replacing the old mock flow).
+- Dean module went live: API routes for faculty, students, hod, competency-assignments, student-allocations, deans, institutions (`/api/dean/*`, `/api/super-admin/deans`, `/api/institutions`). `CompetencyAssignmentDialog` rebuilt against the live endpoints.
+- New `DataSourceBadge` component (`src/components/shared/DataSourceBadge.tsx`) marks which screens are still mock vs. live during the transition.
+- Assessment API routes added: `/api/assessments`, `/api/assessments/[id]`, `/api/assessments/[id]/acknowledge`, `/api/assessment-attempts`.
+- Cleanup: removed the mock-only "advanced" screens built in Session 25 that had no real backend counterpart — `/billing`, `/integrations/lms`, `/super-admin/branding`, `/super-admin/monitoring`, `/super-admin/system-settings`, and the old `/super-admin/competency-import` page (superseded by the live curriculum import flow above). New `/super-admin/deans` page added in their place.
+- Minor: `select` components changed to key off field `id` instead of display value (`ebfd3a5`) so live records with duplicate labels don't collide; assessment form fixes (`a2a1e0f`).
+
+**Session 28 (2026-08-25 to 2026-08-26):** Department-Scoped Access + Faculty Fixes (branch `institution`, PRs #10-#12)
+
+- Department-wise data scoping: new `src/lib/curriculum-scope.ts` restricts curriculum/user queries to the caller's department; enforced in `src/lib/api-auth.ts` and applied across the curriculum and dean API routes.
+- Pagination added to `super-admin/institutions` and `super-admin/departments` list pages (both previously unpaginated live tables).
+- Dean module fixes: faculty, students, hod, allocations pages and dialogs (`FacultyFormDialog`, `HodFormDialog`, `StudentFormDialog`, `AllocationDialog`) updated for the live data shape; `DataTable` and `select` component tweaks.
+- `feat: fix faculty` (`bbdc6da`) and `feat: mock` (`03daa77`) — small follow-up fixes to `/api/dean/student-allocations` and `/api/super-admin/deans`.
+
+Docs note: this entry backfills Sessions 27-28, written 2026-08-27 after noticing WORK_LOG/CHANGELOG had not been updated since Session 26 despite six merged PRs (#6-#12) of real feature work in between.
 
 ## Resume Instructions
 
