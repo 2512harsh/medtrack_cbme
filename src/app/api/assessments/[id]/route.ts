@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { assessments, students, users, competencyAssignments, competencies } from "@/db/schema";
+import { assessments, students, users, competencyAssignments, competencies, batches } from "@/db/schema";
 
 export async function GET(_request: NextRequest, ctx: RouteContext<"/api/assessments/[id]">) {
   const { id } = await ctx.params;
@@ -15,6 +15,9 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/assessm
     .from(students)
     .innerJoin(users, eq(students.userId, users.id))
     .where(eq(students.id, row.studentId));
+  const [batchRow] = studentRow
+    ? await db.select().from(batches).where(eq(batches.id, studentRow.students.batchId))
+    : [];
   const [assignment] = await db
     .select()
     .from(competencyAssignments)
@@ -32,7 +35,8 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/assessm
       registrationNumber: studentRow.students.registrationNumber,
       streamId: studentRow.students.streamId,
       professionalYearId: studentRow.students.professionalYearId,
-      batch: studentRow.students.batch,
+      batchId: studentRow.students.batchId,
+      batch: batchRow?.name ?? "",
       admissionYear: studentRow.students.admissionYear,
       user: {
         id: studentRow.users.id,

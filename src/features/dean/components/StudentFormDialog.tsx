@@ -15,7 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { getStreams, getProfessionalYears } from "@/features/curriculum/services/curriculum";
-import type { Department, ProfessionalYear, Stream, Student } from "@/types";
+import { getBatches } from "@/features/dean/services/dean";
+import type { Batch, Department, ProfessionalYear, Stream, Student } from "@/types";
 
 export interface StudentFormValues {
   firstName: string;
@@ -27,7 +28,7 @@ export interface StudentFormValues {
   streamId: string;
   professionalYearId: string;
   departmentId: string;
-  batch: string;
+  batchId: string;
   admissionYear: number;
   status: "ACTIVE" | "INACTIVE";
 }
@@ -64,19 +65,21 @@ export function StudentFormDialog({
     streamId: "",
     professionalYearId: "",
     departmentId: "",
-    batch: "",
+    batchId: "",
     admissionYear: new Date().getFullYear(),
     status: "ACTIVE",
   });
   const [streams, setStreams] = useState<Stream[]>([]);
   const [professionalYears, setProfessionalYears] = useState<ProfessionalYear[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [s, py] = await Promise.all([getStreams(), getProfessionalYears()]);
+      const [s, py, b] = await Promise.all([getStreams(), getProfessionalYears(), getBatches()]);
       setStreams(s);
       setProfessionalYears(py);
+      setBatches(b);
     })();
   }, []);
 
@@ -92,7 +95,7 @@ export function StudentFormDialog({
         streamId: student?.streamId ?? "",
         professionalYearId: student?.professionalYearId ?? "",
         departmentId: lockedDepartmentId ?? student?.user?.departmentId ?? departments[0]?.id ?? "",
-        batch: student?.batch ?? "",
+        batchId: student?.batchId ?? "",
         admissionYear: student?.admissionYear ?? new Date().getFullYear(),
         status: student?.user?.status ?? "ACTIVE",
       });
@@ -115,7 +118,7 @@ export function StudentFormDialog({
       !values.streamId ||
       !values.professionalYearId ||
       !values.departmentId ||
-      !values.batch ||
+      !values.batchId ||
       !values.admissionYear
     ) {
       setError("Please fill in all required fields.");
@@ -307,13 +310,27 @@ export function StudentFormDialog({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="batch">Batch *</Label>
-              <Input
-                id="batch"
-                placeholder="MBBS-2024"
-                value={values.batch}
-                onChange={(e) => set("batch", e.target.value)}
+              <Select
+                items={batches
+                  .filter((b) => !values.streamId || b.streamId === values.streamId)
+                  .map((b) => ({ value: b.id, label: b.name }))}
+                value={values.batchId}
+                onValueChange={(v) => set("batchId", v ?? "")}
                 disabled={isSaving}
-              />
+              >
+                <SelectTrigger id="batch">
+                  <SelectValue placeholder="Select a batch" />
+                </SelectTrigger>
+                <SelectContent>
+                  {batches
+                    .filter((b) => !values.streamId || b.streamId === values.streamId)
+                    .map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="admissionYear">Admission Year *</Label>

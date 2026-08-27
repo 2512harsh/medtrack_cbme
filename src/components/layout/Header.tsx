@@ -4,15 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -22,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Bell, LogOut, User, Settings, ChevronLeft, Menu } from "lucide-react";
+import { LogOut, ChevronLeft, Menu } from "lucide-react";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -64,6 +56,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       "assigned-students": "Assigned Students",
       "assigned-competencies": "Assigned Competencies",
       students: "Students",
+      batches: "Batches",
       allocation: "Student Allocation",
       "allocation-history": "Allocation History",
       "assessment-queue": "Assessment Queue",
@@ -80,7 +73,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       completion: "Competency Completion",
       audit: "Audit Report",
       response: "Answer Questions",
-      notifications: "Notifications",
       settings: "Settings",
       profile: "Profile",
       system: "System Settings",
@@ -122,6 +114,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       "/curriculum/topics",
       "/curriculum/competencies",
       "/curriculum/import",
+      "/curriculum/batches",
       "/dean/faculty",
       "/dean/students",
       "/dean/students/import",
@@ -143,7 +136,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       "/student/evidence",
       "/assessment/attempt-timeline",
       "/assessment/audit-display",
-      "/assessment/notifications",
       "/assessment/remediation-workflow",
       "/assessment/status-transitions",
       "/reports/student-report",
@@ -201,67 +193,21 @@ export function Header({ onMenuClick }: HeaderProps) {
         </nav>
 
         <div className="flex items-center gap-2 ml-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full" />}
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-destructive rounded-full" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel className="font-normal">Notifications</DropdownMenuLabel>
-              <DropdownMenuItem className="text-sm text-muted-foreground">No new notifications</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Link href="/assessment/notifications" className="w-full flex items-center justify-between">
-                  <span>View all notifications</span>
-                  <ChevronLeft className="h-4 w-4 rotate-180" />
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLogoutDialogOpen(true)}
+            aria-label="Log out"
+            title="Log out"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={<Button variant="ghost" className="relative h-9 w-9 rounded-full" aria-label="User menu" />}
-            >
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${user?.firstName}+${user?.lastName}`} alt={user?.firstName} />
-                <AvatarFallback className="text-xs">
-                  {user?.firstName?.[0]}{user?.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col">
-                  <span className="font-medium">{user?.firstName} {user?.lastName}</span>
-                  <span className="text-xs text-muted-foreground capitalize">{userRole?.toLowerCase()}</span>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Link href="/settings/profile" className="flex items-center gap-2 w-full">
-                  <User className="h-4 w-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/settings/profile" className="flex items-center gap-2 w-full">
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setLogoutDialogOpen(true)}
-                className="text-destructive focus:text-destructive flex items-center gap-2 w-full"
-              >
-                <LogOut className="h-4 w-4" />
-                Log out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Avatar className="h-9 w-9" title={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim()}>
+            <AvatarFallback className="text-xs">
+              {user?.firstName?.[0]}{user?.lastName?.[0]}
+            </AvatarFallback>
+          </Avatar>
         </div>
       </div>
       <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>

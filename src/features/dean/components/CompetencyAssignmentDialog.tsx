@@ -17,7 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { getFaculty } from "@/features/dean/services/dean";
+import { getFaculty, getBatches } from "@/features/dean/services/dean";
 import {
   getSubjects,
   getTopics,
@@ -26,7 +26,7 @@ import {
   getQuestionTemplates,
   createQuestionTemplate,
 } from "@/features/curriculum/services/curriculum";
-import type { Competency, CompetencyAssignment, Faculty, QuestionTemplate, Subject, Topic, Subtopic } from "@/types";
+import type { Batch, Competency, CompetencyAssignment, Faculty, QuestionTemplate, Subject, Topic, Subtopic } from "@/types";
 
 interface DraftQuestion {
   questionText: string;
@@ -41,7 +41,7 @@ function competencyLabel(c: Competency): string {
 export interface CompetencyAssignmentFormValues {
   facultyId: string;
   competencyId: string;
-  batch: string;
+  batchId: string;
   templateId: string;
 }
 
@@ -68,6 +68,7 @@ export function CompetencyAssignmentDialog({
   const [subtopics, setSubtopics] = useState<Subtopic[]>([]);
   const [competencies, setCompetencies] = useState<Competency[]>([]);
   const [templates, setTemplates] = useState<QuestionTemplate[]>([]);
+  const [batches, setBatches] = useState<Batch[]>([]);
 
   const [facultyId, setFacultyId] = useState("");
   const [subjectId, setSubjectId] = useState("");
@@ -75,7 +76,7 @@ export function CompetencyAssignmentDialog({
   const [subtopicId, setSubtopicId] = useState("");
   const [competencyId, setCompetencyId] = useState("");
   const [templateId, setTemplateId] = useState("");
-  const [batch, setBatch] = useState("MBBS-2024");
+  const [batchId, setBatchId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -87,9 +88,10 @@ export function CompetencyAssignmentDialog({
 
   useEffect(() => {
     (async () => {
-      const [f, s] = await Promise.all([getFaculty(), getSubjects()]);
+      const [f, s, b] = await Promise.all([getFaculty(), getSubjects(), getBatches()]);
       setFaculty(f);
       setSubjects(s);
+      setBatches(b);
     })();
   }, []);
 
@@ -101,6 +103,7 @@ export function CompetencyAssignmentDialog({
     setSubtopicId("");
     setCompetencyId("");
     setTemplateId("");
+    setBatchId("");
     setTopics([]);
     setSubtopics([]);
     setCompetencies([]);
@@ -116,7 +119,7 @@ export function CompetencyAssignmentDialog({
     setShowTemplateForm(false);
     resetTemplateDraft();
     setFacultyId(assignment.facultyId);
-    setBatch(assignment.batch);
+    setBatchId(assignment.batchId);
 
     const subtopicIdVal = assignment.competency?.subtopicId;
     if (!subtopicIdVal) return;
@@ -269,12 +272,12 @@ export function CompetencyAssignmentDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!facultyId || !competencyId || !batch) {
+    if (!facultyId || !competencyId || !batchId) {
       setError("Faculty, competency, and batch are required.");
       return;
     }
     setError(null);
-    await onSave({ facultyId, competencyId, batch, templateId });
+    await onSave({ facultyId, competencyId, batchId, templateId });
   };
 
   return (
@@ -542,13 +545,23 @@ export function CompetencyAssignmentDialog({
 
           <div className="space-y-2">
             <Label htmlFor="batch">Batch *</Label>
-            <Input
-              id="batch"
-              placeholder="MBBS-2024"
-              value={batch}
-              onChange={(e) => setBatch(e.target.value)}
+            <Select
+              items={batches.map((b) => ({ value: b.id, label: b.name }))}
+              value={batchId}
+              onValueChange={(v) => setBatchId(v ?? "")}
               disabled={isSaving}
-            />
+            >
+              <SelectTrigger id="batch" className="w-full">
+                <SelectValue placeholder="Select a batch" />
+              </SelectTrigger>
+              <SelectContent>
+                {batches.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}

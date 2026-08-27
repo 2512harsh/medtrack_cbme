@@ -56,9 +56,19 @@ export interface Student {
   registrationNumber: string;
   streamId: string;
   professionalYearId: string;
+  batchId: string;
   batch: string;
   admissionYear: number;
   user?: UserSummary;
+}
+
+export interface Batch {
+  id: string;
+  institutionId: string;
+  streamId: string;
+  name: string;
+  admissionYear: number;
+  status?: "ACTIVE" | "INACTIVE";
 }
 
 export interface Stream {
@@ -140,6 +150,7 @@ export interface CompetencyAssignment {
   id: string;
   facultyId: string;
   competencyId: string;
+  batchId: string;
   batch: string;
   assignedBy: string;
   assignedDate: string;

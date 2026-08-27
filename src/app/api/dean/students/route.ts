@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { students, users } from "@/db/schema";
+import { students, users, batches } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
 import { requireRole, requireInstitution } from "@/lib/api-auth";
 
-function toStudent(row: { students: typeof students.$inferSelect; users: typeof users.$inferSelect }) {
+function toStudent(
+  row: { students: typeof students.$inferSelect; users: typeof users.$inferSelect },
+  batchNameById: Map<string, string>
+) {
   return {
     id: row.students.id,
     userId: row.students.userId,
@@ -14,7 +17,8 @@ function toStudent(row: { students: typeof students.$inferSelect; users: typeof 
     registrationNumber: row.students.registrationNumber,
     streamId: row.students.streamId,
     professionalYearId: row.students.professionalYearId,
-    batch: row.students.batch,
+    batchId: row.students.batchId,
+    batch: batchNameById.get(row.students.batchId) ?? "",
     admissionYear: row.students.admissionYear,
     user: {
       id: row.users.id,
@@ -28,6 +32,12 @@ function toStudent(row: { students: typeof students.$inferSelect; users: typeof 
       updatedAt: row.users.updatedAt,
     },
   };
+}
+
+async function batchNameMap(batchIds: string[]): Promise<Map<string, string>> {
+  if (batchIds.length === 0) return new Map();
+  const rows = await db.select().from(batches).where(inArray(batches.id, [...new Set(batchIds)]));
+  return new Map(rows.map((b) => [b.id, b.name]));
 }
 
 export async function GET(request: NextRequest) {
@@ -62,7 +72,8 @@ export async function GET(request: NextRequest) {
     .from(students)
     .innerJoin(users, eq(students.userId, users.id))
     .where(and(...conditions));
-  return NextResponse.json(rows.map(toStudent));
+  const names = await batchNameMap(rows.map((r) => r.students.batchId));
+  return NextResponse.json(rows.map((r) => toStudent(r, names)));
 }
 
 export async function POST(request: NextRequest) {
@@ -81,7 +92,7 @@ export async function POST(request: NextRequest) {
     registrationNumber,
     streamId,
     professionalYearId,
-    batch,
+    batchId,
     admissionYear,
     status,
   } = body as {
@@ -94,7 +105,7 @@ export async function POST(request: NextRequest) {
     registrationNumber: string;
     streamId: string;
     professionalYearId: string;
-    batch: string;
+    batchId: string;
     admissionYear: number;
     status?: "ACTIVE" | "INACTIVE";
   };
@@ -103,8 +114,13 @@ export async function POST(request: NextRequest) {
   // department (or leave unassigned).
   const departmentId = auth.user.role === "HOD" ? auth.user.departmentId : (body as { departmentId?: string }).departmentId;
 
-  if (!firstName || !lastName || !email || !password || !rollNumber || !registrationNumber || !streamId || !professionalYearId || !batch || !admissionYear) {
+  if (!firstName || !lastName || !email || !password || !rollNumber || !registrationNumber || !streamId || !professionalYearId || !batchId || !admissionYear) {
     return NextResponse.json({ message: "Missing required student fields" }, { status: 400 });
+  }
+
+  const [batchRow] = await db.select().from(batches).where(eq(batches.id, batchId));
+  if (!batchRow || batchRow.institutionId !== auth.user.institutionId) {
+    return NextResponse.json({ message: "Batch not found" }, { status: 404 });
   }
 
   try {
@@ -132,12 +148,15 @@ export async function POST(request: NextRequest) {
         registrationNumber,
         streamId,
         professionalYearId,
-        batch,
+        batchId,
         admissionYear,
       })
       .returning();
 
-    return NextResponse.json(toStudent({ students: studentRow, users: user }), { status: 201 });
+    return NextResponse.json(
+      toStudent({ students: studentRow, users: user }, new Map([[batchRow.id, batchRow.name]])),
+      { status: 201 }
+    );
   } catch (err) {
     if (isUniqueViolation(err)) {
       return NextResponse.json(

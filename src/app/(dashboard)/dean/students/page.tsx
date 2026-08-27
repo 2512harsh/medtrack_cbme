@@ -117,7 +117,7 @@ export default function StudentManagementPage() {
             registrationNumber: values.registrationNumber,
             streamId: values.streamId,
             professionalYearId: values.professionalYearId,
-            batch: values.batch,
+            batchId: values.batchId,
             admissionYear: values.admissionYear,
             user: {
               ...user,
@@ -141,7 +141,7 @@ export default function StudentManagementPage() {
             registrationNumber: values.registrationNumber,
             streamId: values.streamId,
             professionalYearId: values.professionalYearId,
-            batch: values.batch,
+            batchId: values.batchId,
             admissionYear: values.admissionYear,
             user: {
               id: userId,

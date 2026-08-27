@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { students, users } from "@/db/schema";
+import { students, users, batches } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
 import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
-function toStudent(row: { students: typeof students.$inferSelect; users: typeof users.$inferSelect }) {
+async function toStudent(row: { students: typeof students.$inferSelect; users: typeof users.$inferSelect }) {
+  const [batchRow] = await db.select().from(batches).where(eq(batches.id, row.students.batchId));
   return {
     id: row.students.id,
     userId: row.students.userId,
@@ -14,7 +15,8 @@ function toStudent(row: { students: typeof students.$inferSelect; users: typeof 
     registrationNumber: row.students.registrationNumber,
     streamId: row.students.streamId,
     professionalYearId: row.students.professionalYearId,
-    batch: row.students.batch,
+    batchId: row.students.batchId,
+    batch: batchRow?.name ?? "",
     admissionYear: row.students.admissionYear,
     user: {
       id: row.users.id,
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/dean/stu
   if (!row || !inScope(row, auth.user)) {
     return NextResponse.json({ message: "Student not found" }, { status: 404 });
   }
-  return NextResponse.json(toStudent(row));
+  return NextResponse.json(await toStudent(row));
 }
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/students/[id]">) {
@@ -68,7 +70,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/s
     registrationNumber,
     streamId,
     professionalYearId,
-    batch,
+    batchId,
     admissionYear,
     status,
   } = body as {
@@ -81,7 +83,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/s
     registrationNumber?: string;
     streamId?: string;
     professionalYearId?: string;
-    batch?: string;
+    batchId?: string;
     admissionYear?: number;
     status?: "ACTIVE" | "INACTIVE";
   };
@@ -95,13 +97,20 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/s
   // HOD cannot move a student out of their own department.
   const nextDepartmentId = auth.user.role === "HOD" ? auth.user.departmentId : departmentId;
 
+  if (batchId !== undefined) {
+    const [batchRow] = await db.select().from(batches).where(eq(batches.id, batchId));
+    if (!batchRow || batchRow.institutionId !== auth.user.institutionId) {
+      return NextResponse.json({ message: "Batch not found" }, { status: 404 });
+    }
+  }
+
   try {
     const studentUpdates: Partial<typeof students.$inferInsert> = {};
     if (rollNumber !== undefined) studentUpdates.rollNumber = rollNumber;
     if (registrationNumber !== undefined) studentUpdates.registrationNumber = registrationNumber;
     if (streamId !== undefined) studentUpdates.streamId = streamId;
     if (professionalYearId !== undefined) studentUpdates.professionalYearId = professionalYearId;
-    if (batch !== undefined) studentUpdates.batch = batch;
+    if (batchId !== undefined) studentUpdates.batchId = batchId;
     if (admissionYear !== undefined) studentUpdates.admissionYear = admissionYear;
 
     const [studentRow] = Object.keys(studentUpdates).length
@@ -120,7 +129,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/dean/s
       ? await db.update(users).set(userUpdates).where(eq(users.id, existing.userId)).returning()
       : await db.select().from(users).where(eq(users.id, existing.userId));
 
-    return NextResponse.json(toStudent({ students: studentRow, users: userRow }));
+    return NextResponse.json(await toStudent({ students: studentRow, users: userRow }));
   } catch (err) {
     if (isUniqueViolation(err)) {
       return NextResponse.json({ message: "That email or registration number is already in use." }, { status: 409 });

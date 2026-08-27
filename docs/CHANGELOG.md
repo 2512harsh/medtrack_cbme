@@ -654,6 +654,42 @@ Release Date: 2026-08-06
 - Removed ~39 unused imports/vars (icons, Button, Link, StatusBadge, unused destructured values, unused `catch (err)` bindings)
 - Rewrote 9 detail-page effects: `fetchData` wrapped in `useCallback([params.id])` and effects depend on `[fetchData]`, resolving react-hooks/exhaustive-deps
 
+### Version 3.0.0
+
+Release Date: 2026-08-23
+
+#### Added
+
+- Real Postgres/Drizzle database: full schema, seed script, DB client (`src/db/`)
+- Real session-based auth: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`, `src/lib/session.ts`, `src/lib/password.ts`
+- Curriculum module fully live: API routes for competencies, subjects, topics, subtopics, professional-years, streams, departments; real bulk competency import (`/api/curriculum/import` + `parseImportFile.ts`) replacing the mock import flow
+- Dean module fully live: API routes for faculty, students, HODs, competency-assignments, student-allocations, deans, institutions
+- Assessment API routes: `/api/assessments`, `/api/assessments/[id]`, `/api/assessments/[id]/acknowledge`, `/api/assessment-attempts`
+- `DataSourceBadge` component to flag which screens are still mock vs. live during the transition
+- New `/super-admin/deans` page
+
+#### Changed
+
+- `select` components now key off record `id` instead of display label, avoiding collisions on duplicate labels once data is live
+
+#### Removed
+
+- Mock-only "advanced" screens with no real backend (`/billing`, `/integrations/lms`, `/super-admin/branding`, `/super-admin/monitoring`, `/super-admin/system-settings`, old `/super-admin/competency-import`)
+
+### Version 3.1.0
+
+Release Date: 2026-08-26
+
+#### Added
+
+- Department-scoped data access: `src/lib/curriculum-scope.ts` + `src/lib/api-auth.ts` restrict curriculum and dean queries to the caller's department
+- Pagination on `super-admin/institutions` and `super-admin/departments` list pages
+
+#### Fixed
+
+- Dean module forms/pages (faculty, students, HOD, allocations) corrected for the live data shape
+- `/api/dean/student-allocations` and `/api/super-admin/deans` follow-up fixes
+
 ## Future Entry Template
 
 
