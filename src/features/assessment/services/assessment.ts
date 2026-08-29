@@ -3,9 +3,9 @@ import {
   mockNotifications,
   mockAuditLogs,
   mockStatusTransitions,
-  mockRemediationWorkflow,
   type RoleScopedNotification,
 } from "@/features/assessment/mock/assessment";
+import type { RemediationWorkflowCase } from "@/features/assessment/types";
 
 export function getNotifications(): Promise<Notification[]> {
   return Promise.resolve(mockNotifications);
@@ -26,8 +26,10 @@ export function getStatusTransitions(): Promise<typeof mockStatusTransitions> {
   return Promise.resolve(mockStatusTransitions);
 }
 
-export function getRemediationWorkflow(): Promise<typeof mockRemediationWorkflow> {
-  return Promise.resolve(mockRemediationWorkflow);
+export async function getRemediationWorkflow(): Promise<RemediationWorkflowCase[]> {
+  const res = await fetch("/api/assessments/remediation-workflow");
+  if (!res.ok) throw new Error((await res.json().catch(() => null))?.message ?? "Failed to load remediation workflow");
+  return res.json();
 }
 
 export function markNotificationAsRead(id: string): Promise<RoleScopedNotification> {

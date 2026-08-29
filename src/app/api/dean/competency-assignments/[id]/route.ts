@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { competencyAssignments, faculty, users, competencies, subtopics, topics, subjects, batches } from "@/db/schema";
+import { competencyAssignments, faculty, users, competencies, subtopics, topics, subjects, batches, students } from "@/db/schema";
 import { requireRole, requireInstitution, type SessionUser } from "@/lib/api-auth";
 
 async function embedAssignment(row: typeof competencyAssignments.$inferSelect) {
@@ -61,11 +61,15 @@ async function assignmentInScope(row: typeof competencyAssignments.$inferSelect,
     const [ownFaculty] = await db.select({ id: faculty.id }).from(faculty).where(eq(faculty.userId, user.id));
     return !!ownFaculty && ownFaculty.id === row.facultyId;
   }
+  if (user.role === "Student") {
+    const [ownStudent] = await db.select({ batchId: students.batchId }).from(students).where(eq(students.userId, user.id));
+    return !!ownStudent && ownStudent.batchId === row.batchId;
+  }
   return facultyInScope(row.facultyId, user);
 }
 
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/dean/competency-assignments/[id]">) {
-  const auth = await requireRole(request, ["Dean", "HOD", "Faculty"]);
+  const auth = await requireRole(request, ["Dean", "HOD", "Faculty", "Student"]);
   if (!auth.ok) return auth.response;
 
   const { id } = await ctx.params;

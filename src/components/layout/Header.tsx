@@ -148,9 +148,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       "/super-admin/departments",
       "/super-admin/deans",
       "/settings/profile",
-      "/settings/notifications",
-      "/settings/appearance",
-      "/settings/security",
     ];
     return validRoutes.includes(href);
   };

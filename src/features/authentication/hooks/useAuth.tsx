@@ -10,6 +10,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   userRole: UserRole | null;
   dashboardRoute: string;
 }
@@ -46,6 +47,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   };
 
+  const refreshUser = async () => {
+    const current = await getCurrentUser().catch(() => null);
+    setUser(current);
+  };
+
   const userRole = user?.role || null;
   const dashboardRoute = userRole ? getDashboardRoute(userRole) : "/login";
 
@@ -57,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        refreshUser,
         userRole,
         dashboardRoute,
       }}

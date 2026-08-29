@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import { getStudentReportData } from "@/features/reports/services/reports";
 import { AsyncContent } from "@/components/shared/AsyncContent";
-import type { mockStudentReportData } from "@/features/reports/mock/reports";
+import type { StudentReportData } from "@/features/reports/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiGrid } from "@/components/layout/KpiGrid";
 import { StatCard } from "@/components/shared/StatCard";
@@ -14,8 +14,6 @@ import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { ChartPanel } from "@/components/shared/ChartPanel";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-
-type StudentReportData = typeof mockStudentReportData;
 
 type StudentRow = {
   id: string;

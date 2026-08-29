@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -10,9 +10,13 @@ import {
   topics,
   subjects,
 } from "@/db/schema";
+import { requireRole } from "@/lib/api-auth";
 
-export async function GET() {
-  const [student] = await db.select().from(students).limit(1);
+export async function GET(request: NextRequest) {
+  const auth = await requireRole(request, ["Student"]);
+  if (!auth.ok) return auth.response;
+
+  const [student] = await db.select().from(students).where(eq(students.userId, auth.user.id));
   if (!student) {
     return NextResponse.json([]);
   }

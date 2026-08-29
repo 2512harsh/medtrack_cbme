@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { assessmentAttempts } from "@/db/schema";
+import { assessmentAttempts, assessments } from "@/db/schema";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/assessments/[id]/acknowledge">) {
   const { id } = await ctx.params;
@@ -33,6 +33,17 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/assessm
     })
     .where(eq(assessmentAttempts.id, latestAttempt.id))
     .returning();
+
+  // Acknowledging is only meaningful for a passing decision — a "Needs
+  // Remediation" attempt instead moves the assessment through the reattempt
+  // flow (see assessment-attempts/route.ts), so only flip the assessment
+  // itself to Completed when this acknowledgement resolves that wait.
+  if (updated.decision !== "Needs Remediation") {
+    await db
+      .update(assessments)
+      .set({ currentStatus: "Completed" })
+      .where(eq(assessments.id, id));
+  }
 
   return NextResponse.json(updated);
 }

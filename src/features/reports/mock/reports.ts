@@ -1,37 +1,3 @@
-export const mockStudentReportData = {
-  summary: {
-    totalStudents: 156,
-    activeStudents: 142,
-    completedAssessments: 1247,
-    pendingAssessments: 89,
-    remediationCases: 23,
-  },
-  students: [
-    { id: "stu-1", name: "Aarav Patel", rollNumber: "MBBS2024-001", batch: "MBBS-2024", completed: 8, pending: 2, remediation: 0, overallProgress: 80 },
-    { id: "stu-2", name: "Priya Sharma", rollNumber: "MBBS2024-002", batch: "MBBS-2024", completed: 6, pending: 3, remediation: 1, overallProgress: 60 },
-    { id: "stu-3", name: "Rohan Verma", rollNumber: "MBBS2024-003", batch: "MBBS-2023", completed: 5, pending: 4, remediation: 2, overallProgress: 50 },
-    { id: "stu-4", name: "Sneha Reddy", rollNumber: "MBBS2024-004", batch: "MBBS-2024", completed: 7, pending: 2, remediation: 0, overallProgress: 70 },
-    { id: "stu-5", name: "Vikram Singh", rollNumber: "MBBS2024-005", batch: "MBBS-2023", completed: 9, pending: 1, remediation: 0, overallProgress: 90 },
-  ],
-};
-
-export const mockFacultyReportData = {
-  summary: {
-    totalFaculty: 8,
-    activeFaculty: 7,
-    totalAssessments: 245,
-    completedReviews: 198,
-    pendingReviews: 47,
-  },
-  faculty: [
-    { id: "fac-1", name: "Dr. Rajesh Kumar", designation: "Professor", department: "Anatomy", assessments: 45, completed: 38, pending: 7, avgRating: 4.2 },
-    { id: "fac-2", name: "Dr. Sunita Devi", designation: "Associate Professor", department: "Physiology", assessments: 38, completed: 32, pending: 6, avgRating: 3.8 },
-    { id: "fac-3", name: "Dr. Amit Singh", designation: "Assistant Professor", department: "Anatomy", assessments: 42, completed: 35, pending: 7, avgRating: 4.0 },
-    { id: "fac-4", name: "Dr. Priya Nair", designation: "Lecturer", department: "Biochemistry", assessments: 30, completed: 25, pending: 5, avgRating: 3.9 },
-    { id: "fac-5", name: "Dr. Vikram Patel", designation: "Professor", department: "Physiology", assessments: 0, completed: 0, pending: 0, avgRating: 0 },
-  ],
-};
-
 export const mockDepartmentReportData = {
   summary: {
     totalDepartments: 3,

@@ -23,6 +23,31 @@ export async function getCurrentUser(): Promise<UserSummary | null> {
   return res.json();
 }
 
+export async function updateProfile(data: { firstName: string; lastName: string; email: string }): Promise<UserSummary> {
+  const res = await fetch("/api/auth/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.message ?? "Failed to update profile");
+  }
+  return res.json();
+}
+
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const res = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.message ?? "Failed to update password");
+  }
+}
+
 export function getDashboardRoute(role: UserRole): string {
   switch (role) {
     case "Super Admin":

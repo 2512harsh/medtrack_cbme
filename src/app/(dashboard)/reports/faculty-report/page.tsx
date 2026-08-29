@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraduationCap, CheckCircle, Clock, Star } from "lucide-react";
 import { getFacultyReportData } from "@/features/reports/services/reports";
 import { AsyncContent } from "@/components/shared/AsyncContent";
-import type { mockFacultyReportData } from "@/features/reports/mock/reports";
+import type { FacultyReportData } from "@/features/reports/types";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { KpiGrid } from "@/components/layout/KpiGrid";
 import { StatCard } from "@/components/shared/StatCard";
@@ -15,8 +15,6 @@ import { ColumnDef } from "@tanstack/react-table";
 import { ChartPanel } from "@/components/shared/ChartPanel";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-type FacultyReportData = typeof mockFacultyReportData;
-
 type FacultyRow = {
   id: string;
   name: string;
@@ -25,7 +23,7 @@ type FacultyRow = {
   assessments: number;
   completed: number;
   pending: number;
-  avgRating: number;
+  percentExceeds: number;
 };
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string }[]; label?: string }) {
@@ -86,11 +84,11 @@ export default function FacultyReportPage() {
     setDepartment("");
   };
 
-  const avgRating = useMemo(() => {
-    if (!data) return "0.0";
-    const rated = data.faculty.filter((f) => f.avgRating > 0);
-    if (rated.length === 0) return "0.0";
-    return (rated.reduce((sum, f) => sum + f.avgRating, 0) / rated.length).toFixed(1);
+  const avgPercentExceeds = useMemo(() => {
+    if (!data) return 0;
+    const rated = data.faculty.filter((f) => f.assessments > 0);
+    if (rated.length === 0) return 0;
+    return Math.round(rated.reduce((sum, f) => sum + f.percentExceeds, 0) / rated.length);
   }, [data]);
 
   const columns: ColumnDef<AppTableFeatures, FacultyRow>[] = [
@@ -101,11 +99,11 @@ export default function FacultyReportPage() {
     { accessorKey: "completed", header: "Completed", cell: ({ row }) => <span className="text-green-600">{row.getValue("completed")}</span> },
     { accessorKey: "pending", header: "Pending", cell: ({ row }) => <span className="text-orange-600">{row.getValue("pending")}</span> },
     {
-      accessorKey: "avgRating",
-      header: "Avg Rating",
+      accessorKey: "percentExceeds",
+      header: "% Exceeds Expectations",
       cell: ({ row }) => {
-        const rating = row.getValue("avgRating") as number;
-        return rating > 0 ? <span className="text-yellow-600">{rating.toFixed(1)}</span> : <span className="text-muted-foreground">—</span>;
+        const value = row.getValue("percentExceeds") as number;
+        return <span className="text-yellow-600">{value}%</span>;
       },
     },
   ];
@@ -131,7 +129,7 @@ export default function FacultyReportPage() {
               <StatCard title="Total Faculty" value={reportData.summary.totalFaculty} icon={<GraduationCap className="h-4 w-4" />} bare iconClassName="text-muted-foreground" />
               <StatCard title="Completed Reviews" value={reportData.summary.completedReviews} icon={<CheckCircle className="h-4 w-4" />} bare iconClassName="text-green-600" />
               <StatCard title="Pending Reviews" value={reportData.summary.pendingReviews} icon={<Clock className="h-4 w-4" />} bare iconClassName="text-orange-600" />
-              <StatCard title="Avg Rating" value={avgRating} icon={<Star className="h-4 w-4" />} bare iconClassName="text-yellow-600" />
+              <StatCard title="Avg % Exceeds Expectations" value={`${avgPercentExceeds}%`} icon={<Star className="h-4 w-4" />} bare iconClassName="text-yellow-600" />
             </KpiGrid>
 
             <div className="grid gap-6 lg:grid-cols-2">
