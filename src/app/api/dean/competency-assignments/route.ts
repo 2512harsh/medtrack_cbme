@@ -115,7 +115,7 @@ async function scopedFacultyIds(user: SessionUser): Promise<Set<string>> {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await requireRole(request, ["Dean", "HOD", "Faculty"]);
+  const auth = await requireRole(request, ["Dean", "HOD", "Faculty", "Student"]);
   if (!auth.ok) return auth.response;
 
   // Faculty only ever sees their own assignments, regardless of query params.
@@ -123,6 +123,15 @@ export async function GET(request: NextRequest) {
     const [ownFaculty] = await db.select({ id: faculty.id }).from(faculty).where(eq(faculty.userId, auth.user.id));
     if (!ownFaculty) return NextResponse.json([]);
     const rows = await db.select().from(competencyAssignments).where(eq(competencyAssignments.facultyId, ownFaculty.id));
+    return NextResponse.json(await embedAssignments(rows));
+  }
+
+  // Student only ever sees assignments for their own batch, derived from
+  // their own student record — never trust a client-supplied batch/batchId.
+  if (auth.user.role === "Student") {
+    const [ownStudent] = await db.select({ batchId: students.batchId }).from(students).where(eq(students.userId, auth.user.id));
+    if (!ownStudent) return NextResponse.json([]);
+    const rows = await db.select().from(competencyAssignments).where(eq(competencyAssignments.batchId, ownStudent.batchId));
     return NextResponse.json(await embedAssignments(rows));
   }
 

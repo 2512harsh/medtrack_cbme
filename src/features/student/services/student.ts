@@ -31,11 +31,8 @@ export function getStudent(): Promise<Student> {
   return apiGet<Student>("/api/student/me");
 }
 
-export async function getMyCompetencies(): Promise<CompetencyAssignment[]> {
-  const student = await getStudent();
-  return apiGet<CompetencyAssignment[]>(
-    `/api/dean/competency-assignments?batch=${encodeURIComponent(student.batch)}`
-  );
+export function getMyCompetencies(): Promise<CompetencyAssignment[]> {
+  return apiGet<CompetencyAssignment[]>("/api/dean/competency-assignments");
 }
 
 export async function getMyAssessments(): Promise<Assessment[]> {

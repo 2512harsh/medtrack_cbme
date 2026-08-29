@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
-import { getMyCompetencies } from "@/features/student/services/student";
-import type { CompetencyAssignment } from "@/types";
+import { getMyCompetencies, getMyAssessments } from "@/features/student/services/student";
+import type { CompetencyAssignment, AssessmentStatus } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { AsyncContent } from "@/components/shared/AsyncContent";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -45,7 +45,7 @@ const columns: ColumnDef<AppTableFeatures, CompRow>[] = [
           ? "bg-blue-100 text-blue-700"
           : status === "Needs Remediation"
           ? "bg-red-100 text-red-700"
-          : status === "Waiting for Student Acknowledgement"
+          : status === "Waiting for Student Acknowledgement" || status === "Submitted" || status === "Faculty Reviewed"
           ? "bg-yellow-100 text-yellow-700"
           : "bg-gray-100 text-gray-700";
       return <span className={`px-2 py-1 text-xs rounded-full ${variant}`}>{status}</span>;
@@ -69,15 +69,26 @@ const columns: ColumnDef<AppTableFeatures, CompRow>[] = [
   },
 ];
 
+function displayStatus(status: AssessmentStatus | undefined): string {
+  if (!status) return "Assigned";
+  if (status === "Reattempt Scheduled") return "Needs Remediation";
+  return status;
+}
+
 async function getData(): Promise<CompRow[]> {
-  const competencies = await getMyCompetencies();
-  return competencies.map((c: CompetencyAssignment) => ({
-    id: c.id,
-    code: c.competency?.competencyCode ?? "",
-    title: c.competency?.competencyTitle ?? "",
-    status: "Assigned",
-    attempt: 0,
-  }));
+  const [competencies, assessments] = await Promise.all([getMyCompetencies(), getMyAssessments()]);
+  const assessmentByAssignmentId = new Map(assessments.map((a) => [a.competencyAssignmentId, a]));
+
+  return competencies.map((c: CompetencyAssignment) => {
+    const assessment = assessmentByAssignmentId.get(c.id);
+    return {
+      id: c.id,
+      code: c.competency?.competencyCode ?? "",
+      title: c.competency?.competencyTitle ?? "",
+      status: displayStatus(assessment?.currentStatus),
+      attempt: assessment?.currentAttempt ?? 0,
+    };
+  });
 }
 export default function MyCompetenciesPage() {
   const [data, setData] = useState<CompRow[] | undefined>(undefined);

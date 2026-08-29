@@ -62,6 +62,19 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/assess
   const updates: Partial<typeof assessments.$inferInsert> = {};
   if (currentStatus !== undefined) updates.currentStatus = currentStatus as typeof assessments.$inferInsert.currentStatus;
 
+  // Resubmitting after a "Needs Remediation" review is the start of a new
+  // attempt from the student's side, even though faculty hasn't reviewed it
+  // yet — bump currentAttempt here so the faculty queue reflects that this
+  // is a resubmission, not attempt 1 again. The attempt count naturally
+  // stays in sync once faculty reviews it (see assessment-attempts/route.ts,
+  // which numbers a new review as priorAttempts.length + 1).
+  if (currentStatus === "Submitted") {
+    const [existing] = await db.select().from(assessments).where(eq(assessments.id, id));
+    if (existing?.currentStatus === "Reattempt Scheduled") {
+      updates.currentAttempt = existing.currentAttempt + 1;
+    }
+  }
+
   const [row] = await db.update(assessments).set(updates).where(eq(assessments.id, id)).returning();
   if (!row) {
     return NextResponse.json({ message: "Assessment not found" }, { status: 404 });
