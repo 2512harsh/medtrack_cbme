@@ -10,19 +10,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, User, Mail, Shield, Eye, EyeOff, Phone, Briefcase, Building2, Camera } from "lucide-react";
+import { Loader2, User, Mail, Shield, Eye, EyeOff, Sun, Moon, LayoutDashboard } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
+import { updateProfile, changePassword } from "@/features/authentication/services/auth";
 import { SectionHeading } from "@/components/shared/SectionHeading";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toast } from "sonner";
+import { SettingRow } from "@/components/shared/SettingRow";
+import { cn } from "@/lib/utils";
+
+const themeOptions = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: LayoutDashboard },
+];
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().optional(),
-  designation: z.string().optional(),
-  department: z.string().optional(),
 });
 
 type ProfileFormData = z.infer<typeof profileSchema>;
@@ -42,29 +47,13 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, logout, isLoading: authLoading } = useAuth();
+  const { user, logout, refreshUser, isLoading: authLoading } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [photo, setPhoto] = useState<string | null>(null);
-  const photoInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please choose a valid image file");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image must be 2MB or smaller");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setPhoto(reader.result as string);
-    reader.readAsDataURL(file);
-  };
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -72,9 +61,6 @@ export default function ProfilePage() {
       firstName: user?.firstName || "",
       lastName: user?.lastName || "",
       email: user?.email || "",
-      phone: "",
-      designation: "",
-      department: user?.departmentId || "",
     },
   });
 
@@ -87,35 +73,40 @@ export default function ProfilePage() {
     },
   });
 
-  const onSaveProfile = async () => {
+  const onSaveProfile = async (data: ProfileFormData) => {
     setMessage(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await updateProfile(data);
+      await refreshUser();
       setMessage({ type: "success", text: "Profile updated successfully" });
-    } catch {
-      setMessage({ type: "error", text: "Failed to update profile. Please try again." });
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Failed to update profile. Please try again." });
     }
   };
 
-  const onUpdatePassword = async () => {
+  const onUpdatePassword = async (data: PasswordFormData) => {
     setMessage(null);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      await changePassword(data.currentPassword, data.newPassword);
       setMessage({ type: "success", text: "Password updated successfully" });
       passwordForm.reset({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    } catch {
-      setMessage({ type: "error", text: "Failed to update password. Please try again." });
+    } catch (err) {
+      setMessage({ type: "error", text: err instanceof Error ? err.message : "Failed to update password. Please try again." });
     }
   };
 
   const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-    router.refresh();
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      router.push("/login");
+      router.refresh();
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   const isLoading = authLoading || profileForm.formState.isSubmitting || passwordForm.formState.isSubmitting;
-  const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.trim() || "U";
 
   return (
     <div className="max-w-[1000px] space-y-6">
@@ -137,35 +128,6 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={profileForm.handleSubmit(onSaveProfile)} className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar size="lg">
-                  {photo ? (
-                    <AvatarImage src={photo} alt="Profile photo" />
-                  ) : (
-                    <AvatarFallback>{initials}</AvatarFallback>
-                  )}
-                </Avatar>
-                <div>
-                  <input
-                    ref={photoInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => photoInputRef.current?.click()}
-                  >
-                    <Camera className="h-4 w-4" />
-                    {photo ? "Change Photo" : "Upload Photo"}
-                  </Button>
-                  <p className="mt-1 text-xs text-muted-foreground">JPG, PNG or GIF. 2MB max.</p>
-                </div>
-              </div>
-
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="firstName">First Name</Label>
@@ -205,69 +167,57 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="email">Email Address</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="Enter your email"
-                      className="pl-10"
-                      {...profileForm.register("email")}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  {profileForm.formState.errors.email && (
-                    <p className="text-sm text-destructive" role="alert">
-                      {profileForm.formState.errors.email.message}
-                    </p>
-                  )}
+              <div className="space-y-1.5">
+                <Label htmlFor="email">Email Address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    className="pl-10"
+                    {...profileForm.register("email")}
+                    disabled={isLoading}
+                  />
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="phone">Phone</Label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="Enter your phone number"
-                      className="pl-10"
-                      {...profileForm.register("phone")}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
+                {profileForm.formState.errors.email && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {profileForm.formState.errors.email.message}
+                  </p>
+                )}
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="designation">Designation</Label>
-                  <div className="relative">
-                    <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      id="designation"
-                      placeholder="Enter your designation"
-                      className="pl-10"
-                      {...profileForm.register("designation")}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="department">Department</Label>
-                  <div className="relative">
-                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                    <Input
-                      id="department"
-                      placeholder="Enter your department"
-                      className="pl-10"
-                      {...profileForm.register("department")}
-                      disabled={isLoading}
-                    />
-                  </div>
-                </div>
+              <div className="border-t pt-4">
+                <SettingRow
+                  icon={Sun}
+                  label="Theme"
+                  description="Choose how the interface is displayed"
+                  control={
+                    <div className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1" role="radiogroup" aria-label="Theme">
+                      {themeOptions.map((option) => {
+                        const isActive = theme === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={isActive}
+                            onClick={() => setTheme(option.value)}
+                            className={cn(
+                              "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                              isActive
+                                ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                                : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                            )}
+                          >
+                            <option.icon className="h-4 w-4" />
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  }
+                />
               </div>
 
               <div className="flex justify-end border-t pt-4">
@@ -411,8 +361,8 @@ export default function ProfilePage() {
               This will log you out from all devices and clear your session
             </p>
           </div>
-          <Button variant="destructive" onClick={handleLogout} disabled={isLoading}>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <Button variant="destructive" onClick={handleLogout} disabled={isLoading || isLoggingOut}>
+            {isLoggingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Sign Out Everywhere
           </Button>
         </CardFooter>
