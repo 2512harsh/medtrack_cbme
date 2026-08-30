@@ -9,22 +9,28 @@ async function embedAssessments(rows: (typeof assessments.$inferSelect)[]) {
   const studentIds = [...new Set(rows.map((r) => r.studentId))];
   const assignmentIds = [...new Set(rows.map((r) => r.competencyAssignmentId))];
 
-  const studentRows = await db
-    .select()
-    .from(students)
-    .innerJoin(users, eq(students.userId, users.id))
-    .where(inArray(students.id, studentIds));
-  const batchRows = await db
-    .select()
-    .from(batches)
-    .where(inArray(batches.id, [...new Set(studentRows.map((r) => r.students.batchId))]));
-  const batchNameById = new Map(batchRows.map((b) => [b.id, b.name]));
-  const assignmentRows = await db
-    .select()
-    .from(competencyAssignments)
-    .where(inArray(competencyAssignments.id, assignmentIds));
+  const [studentRows, assignmentRows] = await Promise.all([
+    db
+      .select()
+      .from(students)
+      .innerJoin(users, eq(students.userId, users.id))
+      .where(inArray(students.id, studentIds)),
+    db
+      .select()
+      .from(competencyAssignments)
+      .where(inArray(competencyAssignments.id, assignmentIds)),
+  ]);
+
   const competencyIds = [...new Set(assignmentRows.map((a) => a.competencyId))];
-  const competencyRows = await db.select().from(competencies).where(inArray(competencies.id, competencyIds));
+
+  const [batchRows, competencyRows] = await Promise.all([
+    db
+      .select()
+      .from(batches)
+      .where(inArray(batches.id, [...new Set(studentRows.map((r) => r.students.batchId))])),
+    db.select().from(competencies).where(inArray(competencies.id, competencyIds)),
+  ]);
+  const batchNameById = new Map(batchRows.map((b) => [b.id, b.name]));
 
   const studentById = new Map(
     studentRows.map((r) => [

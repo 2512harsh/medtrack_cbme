@@ -11,17 +11,19 @@ async function embedAllocations(rows: (typeof studentAllocations.$inferSelect)[]
   const studentIds = [...new Set(rows.map((r) => r.studentId))];
   const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
 
-  const facultyRows = await db
-    .select()
-    .from(faculty)
-    .innerJoin(users, eq(faculty.userId, users.id))
-    .where(inArray(faculty.id, facultyIds));
-  const studentRows = await db
-    .select()
-    .from(students)
-    .innerJoin(users, eq(students.userId, users.id))
-    .where(inArray(students.id, studentIds));
-  const subjectRows = await db.select().from(subjects).where(inArray(subjects.id, subjectIds));
+  const [facultyRows, studentRows, subjectRows] = await Promise.all([
+    db
+      .select()
+      .from(faculty)
+      .innerJoin(users, eq(faculty.userId, users.id))
+      .where(inArray(faculty.id, facultyIds)),
+    db
+      .select()
+      .from(students)
+      .innerJoin(users, eq(students.userId, users.id))
+      .where(inArray(students.id, studentIds)),
+    db.select().from(subjects).where(inArray(subjects.id, subjectIds)),
+  ]);
   const batchRows = await db
     .select()
     .from(batches)
