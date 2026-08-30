@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,10 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, User, Mail, Shield, Eye, EyeOff, Sun, Moon, LayoutDashboard } from "lucide-react";
+import { Loader2, User, Mail, Shield, Eye, EyeOff, Sun, Moon, LayoutDashboard, Upload } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
-import { updateProfile, changePassword } from "@/features/authentication/services/auth";
+import { updateProfile, changePassword, getMySignature } from "@/features/authentication/services/auth";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { SettingRow } from "@/components/shared/SettingRow";
 import { cn } from "@/lib/utils";
@@ -54,6 +54,22 @@ export default function ProfilePage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+
+  // Load the actual signature image only here, on demand — /api/auth/me no
+  // longer carries it. Re-fetch if the "has signature" flag flips.
+  const userId = user?.id;
+  const hasSignature = !!user?.hasSignature;
+  useEffect(() => {
+    if (!userId) return;
+    if (hasSignature) {
+      getMySignature().then(setSignatureImage).catch(() => setSignatureImage(null));
+    } else {
+      setSignatureImage(null);
+    }
+  }, [userId, hasSignature]);
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -76,12 +92,31 @@ export default function ProfilePage() {
   const onSaveProfile = async (data: ProfileFormData) => {
     setMessage(null);
     try {
-      await updateProfile(data);
+      await updateProfile({ ...data, signatureImage });
       await refreshUser();
       setMessage({ type: "success", text: "Profile updated successfully" });
     } catch (err) {
       setMessage({ type: "error", text: err instanceof Error ? err.message : "Failed to update profile. Please try again." });
     }
+  };
+
+  const handleSignatureFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    setSignatureError(null);
+    if (!file) return;
+    if (!["image/png", "image/jpeg"].includes(file.type)) {
+      setSignatureError("Use a PNG or JPEG image.");
+      return;
+    }
+    if (file.size > 700 * 1024) {
+      setSignatureError("Image must be under 700 KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setSignatureImage(typeof reader.result === "string" ? reader.result : null);
+    reader.onerror = () => setSignatureError("Couldn't read that file.");
+    reader.readAsDataURL(file);
   };
 
   const onUpdatePassword = async (data: PasswordFormData) => {
@@ -183,6 +218,63 @@ export default function ProfilePage() {
                 {profileForm.formState.errors.email && (
                   <p className="text-sm text-destructive" role="alert">
                     {profileForm.formState.errors.email.message}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1.5 border-t pt-4">
+                <Label>Signature</Label>
+                <p className="text-sm text-muted-foreground">
+                  Used on certificates and official logbook documents.
+                </p>
+                <div className="flex items-start gap-4 pt-1">
+                  <div className="flex h-24 w-56 shrink-0 items-center justify-center rounded-lg border bg-muted/30">
+                    {signatureImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={signatureImage}
+                        alt="Your signature"
+                        className="max-h-full max-w-full object-contain p-2"
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">No signature uploaded</span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={signatureInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      className="hidden"
+                      onChange={handleSignatureFile}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => signatureInputRef.current?.click()}
+                      disabled={isLoading}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      {signatureImage ? "Replace" : "Upload"}
+                    </Button>
+                    {signatureImage && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSignatureImage(null)}
+                        disabled={isLoading}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">PNG or JPEG, under 700 KB. Saved with your profile changes.</p>
+                {signatureError && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {signatureError}
                   </p>
                 )}
               </div>

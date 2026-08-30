@@ -83,6 +83,7 @@ const navigation = [
       { title: "Student Import", href: "/dean/students/import", roles: ["Dean", "HOD"] },
       { title: "Student Allocation", href: "/dean/allocations", roles: ["Dean", "HOD"] },
       { title: "Allocation History", href: "/dean/allocation-history", roles: ["Dean", "HOD"] },
+      { title: "Logbook", href: "/dean/logbook", roles: ["Dean", "HOD"] },
       { title: "My Competencies", href: "/student/my-competencies", roles: ["Student"] },
       { title: "My Progress", href: "/student/progress", roles: ["Student"] },
       { title: "Evidence Upload", href: "/student/evidence", roles: ["Student"] },

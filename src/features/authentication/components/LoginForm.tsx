@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +12,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { loginSchema, type LoginFormData } from "@/features/authentication/schemas/login";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
+import { RegisterForm } from "@/features/authentication/components/RegisterForm";
+import { cn } from "@/lib/utils";
 
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, isLoading: authLoading } = useAuth();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const [mode, setMode] = React.useState<"signin" | "register">("signin");
+  const [notice, setNotice] = React.useState<string | null>(null);
   const [showPassword, setShowPassword] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -56,11 +59,56 @@ export function LoginForm() {
         </div>
 
         <Card>
-          <CardHeader className="text-center">
-            <CardTitle>Sign in to your account</CardTitle>
-            <CardDescription>Enter your credentials to access the dashboard</CardDescription>
+          <CardHeader className="space-y-3 text-center">
+            <div className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/40 p-1">
+              {(["signin", "register"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setMode(m);
+                    setError(null);
+                    setNotice(null);
+                  }}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    mode === m
+                      ? "bg-background text-foreground shadow-sm ring-1 ring-border"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {m === "signin" ? "Sign in" : "Register as student"}
+                </button>
+              ))}
+            </div>
+            <div>
+              <CardTitle>
+                {mode === "signin" ? "Sign in to your account" : "Create a student account"}
+              </CardTitle>
+              <CardDescription>
+                {mode === "signin"
+                  ? "Enter your credentials to access the dashboard"
+                  : "Register with your institution and batch details"}
+              </CardDescription>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {notice && (
+              <Alert className="gap-2">
+                <AlertDescription className="text-sm">{notice}</AlertDescription>
+              </Alert>
+            )}
+
+            {mode === "register" ? (
+              <RegisterForm
+                onRegistered={(email) => {
+                  setMode("signin");
+                  setError(null);
+                  setNotice(`Account created for ${email}. Sign in with the password you just set.`);
+                }}
+              />
+            ) : (
+              <>
             {error && (
               <Alert variant="destructive" className="gap-2">
                 <AlertDescription className="text-sm">{error}</AlertDescription>
@@ -132,16 +180,9 @@ export function LoginForm() {
                 )}
               </Button>
             </form>
-
+              </>
+            )}
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
-            <p className="text-center text-sm text-muted-foreground">
-              Forgot password?{" "}
-              <Link href="/forgot-password" className="underline hover:text-primary">
-                Reset it
-              </Link>
-            </p>
-          </CardFooter>
         </Card>
       </div>
     </div>
