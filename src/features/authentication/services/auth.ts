@@ -17,6 +17,42 @@ export async function logout(): Promise<void> {
   await fetch("/api/auth/logout", { method: "POST" });
 }
 
+export interface RegisterOptions {
+  institutions: { id: string; name: string }[];
+  batches: { id: string; name: string; institutionId: string; streamId: string }[];
+  professionalYears: { id: string; name: string; streamId: string; sequence: number }[];
+}
+
+export async function getRegisterOptions(): Promise<RegisterOptions> {
+  const res = await fetch("/api/auth/register/options");
+  if (!res.ok) throw new Error("Could not load registration options");
+  return res.json();
+}
+
+export interface StudentRegistration {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  rollNumber: string;
+  registrationNumber: string;
+  institutionId: string;
+  batchId: string;
+  professionalYearId: string;
+}
+
+export async function registerStudent(data: StudentRegistration): Promise<void> {
+  const res = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const payload = await res.json().catch(() => null);
+    throw new Error(payload?.message ?? "Registration failed");
+  }
+}
+
 export async function getCurrentUser(): Promise<UserSummary | null> {
   const res = await fetch("/api/auth/me");
   if (!res.ok) return null;
