@@ -12,7 +12,6 @@ export interface ParsedStudentRow {
   professionalYear: string;
   batch: string;
   admissionYear: string;
-  department: string;
   password: string;
 }
 
@@ -32,7 +31,6 @@ type Field =
   | "professionalYear"
   | "batch"
   | "admissionYear"
-  | "department"
   | "password";
 
 function normalize(header: string): string {
@@ -63,7 +61,6 @@ function resolveColumnMap(headers: string[]): Partial<Record<Field, string>> {
   claim("stream", (h) => h.includes("stream"));
   claim("batch", (h) => h.includes("batch"));
   claim("admissionYear", (h) => h.includes("admission"));
-  claim("department", (h) => h.includes("department"));
   claim("password", (h) => h.includes("password"));
 
   return map;
@@ -129,7 +126,6 @@ export async function parseStudentImportFile(file: File): Promise<ParseResult> {
         professionalYear: get("professionalYear"),
         batch: get("batch"),
         admissionYear: get("admissionYear"),
-        department: get("department"),
         password: get("password"),
       });
     });

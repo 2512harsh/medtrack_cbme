@@ -58,7 +58,6 @@ async function embedAllocation(row: typeof studentAllocations.$inferSelect) {
         email: studentRow.users.email,
         role: studentRow.users.role,
         status: studentRow.users.status,
-        departmentId: studentRow.users.departmentId ?? undefined,
         createdAt: studentRow.users.createdAt,
         updatedAt: studentRow.users.updatedAt,
       },

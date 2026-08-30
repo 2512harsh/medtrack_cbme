@@ -27,7 +27,6 @@ function toStudent(
       email: row.users.email,
       role: row.users.role,
       status: row.users.status,
-      departmentId: row.users.departmentId ?? undefined,
       createdAt: row.users.createdAt,
       updatedAt: row.users.updatedAt,
     },
@@ -42,7 +41,7 @@ async function batchNameMap(batchIds: string[]): Promise<Map<string, string>> {
 
 export async function GET(request: NextRequest) {
   // Super Admin sees students across every institution (e.g. the audit
-  // report); Dean/HOD are scoped to their own institution/department.
+  // report); Dean/HOD are scoped to their own institution.
   const auth = await requireRole(request, ["Dean", "HOD", "Super Admin"]);
   if (!auth.ok) return auth.response;
 
@@ -51,20 +50,14 @@ export async function GET(request: NextRequest) {
   if (auth.user.role === "Super Admin") {
     const institutionId = request.nextUrl.searchParams.get("institutionId");
     if (institutionId) conditions.push(eq(users.institutionId, institutionId));
-    const departmentId = request.nextUrl.searchParams.get("departmentId");
-    if (departmentId) conditions.push(eq(users.departmentId, departmentId));
   } else {
     const institutionError = requireInstitution(auth.user);
     if (institutionError) return institutionError;
 
-    const departmentId =
-      auth.user.role === "HOD" ? auth.user.departmentId : request.nextUrl.searchParams.get("departmentId");
-    if (auth.user.role === "HOD" && !departmentId) {
-      return NextResponse.json({ message: "Your account has no department assigned." }, { status: 403 });
-    }
-
+    // Students belong to the institution, not a department — a student rotates
+    // through many departments over their years — so Dean and HOD both see
+    // every student in their institution.
     conditions.push(eq(users.institutionId, auth.user.institutionId!));
-    if (departmentId) conditions.push(eq(users.departmentId, departmentId));
   }
 
   const rows = await db
@@ -100,7 +93,6 @@ export async function POST(request: NextRequest) {
     lastName: string;
     email: string;
     password: string;
-    departmentId?: string;
     rollNumber: string;
     registrationNumber: string;
     streamId: string;
@@ -109,10 +101,6 @@ export async function POST(request: NextRequest) {
     admissionYear: number;
     status?: "ACTIVE" | "INACTIVE";
   };
-
-  // HOD's students always land in their own department; Dean may assign any
-  // department (or leave unassigned).
-  const departmentId = auth.user.role === "HOD" ? auth.user.departmentId : (body as { departmentId?: string }).departmentId;
 
   if (!firstName || !lastName || !email || !password || !rollNumber || !registrationNumber || !streamId || !professionalYearId || !batchId || !admissionYear) {
     return NextResponse.json({ message: "Missing required student fields" }, { status: 400 });
@@ -134,9 +122,9 @@ export async function POST(request: NextRequest) {
         role: "Student",
         status: status ?? "ACTIVE",
         // Institution is never taken from the client — a student is always
-        // created under the creating Dean/HOD's own institution.
+        // created under the creating Dean/HOD's own institution. No department:
+        // a student's department link comes only from subject allocations.
         institutionId: auth.user.institutionId,
-        departmentId: departmentId || null,
       })
       .returning();
 

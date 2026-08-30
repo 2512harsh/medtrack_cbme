@@ -45,7 +45,6 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/assessm
         email: studentRow.users.email,
         role: studentRow.users.role,
         status: studentRow.users.status,
-        departmentId: studentRow.users.departmentId ?? undefined,
         createdAt: studentRow.users.createdAt,
         updatedAt: studentRow.users.updatedAt,
       },

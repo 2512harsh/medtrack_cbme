@@ -46,7 +46,6 @@ async function embedAssessments(rows: (typeof assessments.$inferSelect)[]) {
           email: r.users.email,
           role: r.users.role,
           status: r.users.status,
-          departmentId: r.users.departmentId ?? undefined,
           createdAt: r.users.createdAt,
           updatedAt: r.users.updatedAt,
         },
