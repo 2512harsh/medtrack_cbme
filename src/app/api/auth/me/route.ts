@@ -15,7 +15,10 @@ function toResponse(user: typeof users.$inferSelect) {
     status: user.status,
     institutionId: user.institutionId ?? undefined,
     departmentId: user.departmentId ?? undefined,
-    signatureImage: user.signatureImage ?? null,
+    // The signature data URL can be ~1 MB — never ship it on the session
+    // lookup that fires on every page load. Only a boolean here; the image
+    // itself is fetched from /api/auth/me/signature when actually needed.
+    hasSignature: !!user.signatureImage,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

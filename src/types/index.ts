@@ -11,7 +11,7 @@ export interface UserSummary {
   status: UserStatus;
   institutionId?: string;
   departmentId?: string;
-  signatureImage?: string | null;
+  hasSignature?: boolean;
   createdAt: string;
   updatedAt: string;
 }

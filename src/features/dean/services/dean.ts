@@ -412,9 +412,14 @@ export function getLogbook(batchId: string, departmentId?: string): Promise<Logb
   return apiGet<Logbook>(`/api/reports/logbook?${params.toString()}`);
 }
 
-export interface LogbookSignatory {
+export type SignoffRole = "Faculty-in-charge" | "HOD" | "Dean";
+
+export interface LogbookSignoffSlot {
+  role: SignoffRole;
+  signed: boolean;
   name: string;
   signatureImage: string | null;
+  signedAt: string | null;
 }
 
 export interface LogbookCertificateCompetency {
@@ -441,11 +446,8 @@ export interface LogbookCertificate {
     professionalYear: string;
     admissionYear: number;
   };
-  signatories: {
-    facultyInCharge: LogbookSignatory;
-    hod: LogbookSignatory;
-    dean: LogbookSignatory;
-  };
+  slots: LogbookSignoffSlot[];
+  certified: boolean;
   eligibility: { eligible: boolean; completedCount: number; totalCount: number; pendingCount: number };
   competencies: LogbookCertificateCompetency[];
 }
@@ -458,4 +460,26 @@ export function getLogbookCertificate(
   const params = new URLSearchParams({ batchId, studentId });
   if (departmentId) params.set("departmentId", departmentId);
   return apiGet<LogbookCertificate>(`/api/reports/logbook/certificate?${params.toString()}`);
+}
+
+export function signLogbookCertificate(
+  batchId: string,
+  studentId: string,
+  role: SignoffRole,
+  departmentId?: string
+): Promise<{ ok: true }> {
+  const params = new URLSearchParams({ batchId, studentId });
+  if (departmentId) params.set("departmentId", departmentId);
+  return apiSend<{ ok: true }>(`/api/reports/logbook/certificate?${params.toString()}`, "POST", { role });
+}
+
+export function revokeLogbookCertificateSignoff(
+  batchId: string,
+  studentId: string,
+  role: SignoffRole,
+  departmentId?: string
+): Promise<{ ok: true }> {
+  const params = new URLSearchParams({ batchId, studentId, role });
+  if (departmentId) params.set("departmentId", departmentId);
+  return apiSend<{ ok: true }>(`/api/reports/logbook/certificate?${params.toString()}`, "DELETE");
 }

@@ -23,6 +23,15 @@ export async function getCurrentUser(): Promise<UserSummary | null> {
   return res.json();
 }
 
+// The caller's own signature image — fetched only where it's actually shown
+// (the Profile page), not on every session lookup.
+export async function getMySignature(): Promise<string | null> {
+  const res = await fetch("/api/auth/me/signature");
+  if (!res.ok) return null;
+  const data = (await res.json()) as { signatureImage: string | null } | null;
+  return data?.signatureImage ?? null;
+}
+
 export async function updateProfile(data: {
   firstName: string;
   lastName: string;

@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, User, Mail, Shield, Eye, EyeOff, Sun, Moon, LayoutDashboard, Upload } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
-import { updateProfile, changePassword } from "@/features/authentication/services/auth";
+import { updateProfile, changePassword, getMySignature } from "@/features/authentication/services/auth";
 import { SectionHeading } from "@/components/shared/SectionHeading";
 import { SettingRow } from "@/components/shared/SettingRow";
 import { cn } from "@/lib/utils";
@@ -58,9 +58,18 @@ export default function ProfilePage() {
   const [signatureError, setSignatureError] = useState<string | null>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
 
+  // Load the actual signature image only here, on demand — /api/auth/me no
+  // longer carries it. Re-fetch if the "has signature" flag flips.
+  const userId = user?.id;
+  const hasSignature = !!user?.hasSignature;
   useEffect(() => {
-    setSignatureImage(user?.signatureImage ?? null);
-  }, [user?.signatureImage]);
+    if (!userId) return;
+    if (hasSignature) {
+      getMySignature().then(setSignatureImage).catch(() => setSignatureImage(null));
+    } else {
+      setSignatureImage(null);
+    }
+  }, [userId, hasSignature]);
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),

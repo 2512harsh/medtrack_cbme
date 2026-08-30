@@ -9,8 +9,9 @@ import { AsyncContent } from "@/components/shared/AsyncContent";
 import { ProgressBar } from "@/components/shared/StatCard";
 import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { getBatches, getDepartments, getLogbook, type Logbook } from "@/features/dean/services/dean";
+import { CertificatePanel } from "@/features/dean/components/CertificatePanel";
 import type { Batch, Department } from "@/types";
-import { CheckCircle2, ChevronRight, Printer } from "lucide-react";
+import { CheckCircle2, ChevronRight } from "lucide-react";
 
 const statusTone: Record<string, string> = {
   Completed: "bg-emerald-100 text-emerald-700",
@@ -77,6 +78,17 @@ export default function LogbookPage() {
     () => new Map((data?.competencies ?? []).map((c) => [c.assignmentId, c])),
     [data]
   );
+
+  // Lazy-mount each student's detail body (and its per-student certificate
+  // fetch) only while the row is expanded.
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const toggleOpen = (id: string, open: boolean) =>
+    setOpenIds((prev) => {
+      const next = new Set(prev);
+      if (open) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
   return (
     <div className="space-y-6">
@@ -157,7 +169,11 @@ export default function LogbookPage() {
           {(studentRows) => (
             <div className="space-y-3">
               {studentRows.map((s) => (
-                <details key={s.id} className="group rounded-lg border bg-card">
+                <details
+                  key={s.id}
+                  className="group rounded-lg border bg-card"
+                  onToggle={(e) => toggleOpen(s.id, (e.currentTarget as HTMLDetailsElement).open)}
+                >
                   <summary className="flex cursor-pointer list-none items-center gap-4 p-4">
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90" />
                     <div className="min-w-0 flex-1">
@@ -180,21 +196,16 @@ export default function LogbookPage() {
                         </span>
                       </div>
                     </div>
-                    <a
-                      href={`/dean/logbook/print?batchId=${encodeURIComponent(batchId)}&studentId=${encodeURIComponent(
-                        s.id
-                      )}${isDean && departmentId ? `&departmentId=${encodeURIComponent(departmentId)}` : ""}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                    >
-                      <Printer className="h-3.5 w-3.5" />
-                      Logbook / Certificate A
-                    </a>
                   </summary>
 
+                  {openIds.has(s.id) && (
                   <div className="border-t px-4 py-3">
+                    <CertificatePanel
+                      batchId={batchId}
+                      studentId={s.id}
+                      departmentId={isDean ? departmentId : undefined}
+                      onChange={fetchData}
+                    />
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
@@ -271,6 +282,7 @@ export default function LogbookPage() {
                       </table>
                     </div>
                   </div>
+                  )}
                 </details>
               ))}
             </div>

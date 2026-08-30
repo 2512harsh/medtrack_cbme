@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -134,14 +133,6 @@ export function LoginForm() {
             </form>
 
           </CardContent>
-          <CardFooter className="flex flex-col space-y-2">
-            <p className="text-center text-sm text-muted-foreground">
-              Forgot password?{" "}
-              <Link href="/forgot-password" className="underline hover:text-primary">
-                Reset it
-              </Link>
-            </p>
-          </CardFooter>
         </Card>
       </div>
     </div>

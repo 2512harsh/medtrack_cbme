@@ -87,17 +87,23 @@ export async function GET(request: NextRequest) {
   const competencyIds = [...new Set(batchAssignments.map((a) => a.competencyId))];
   const facultyIds = [...new Set(batchAssignments.map((a) => a.facultyId))];
 
-  const [competencyRows, subtopicRows, topicRows, subjectRows, facultyRows] = await Promise.all([
+  const [competencyRows, facultyRows] = await Promise.all([
     db.select().from(competencies).where(inArray(competencies.id, competencyIds)),
-    db.select().from(subtopics),
-    db.select().from(topics),
-    db.select().from(subjects),
-    db
-      .select()
-      .from(faculty)
-      .innerJoin(users, eq(faculty.userId, users.id))
-      .where(inArray(faculty.id, facultyIds)),
+    db.select().from(faculty).innerJoin(users, eq(faculty.userId, users.id)).where(inArray(faculty.id, facultyIds)),
   ]);
+
+  const subtopicIdsNeeded = [...new Set(competencyRows.map((c) => c.subtopicId))];
+  const subtopicRows = subtopicIdsNeeded.length
+    ? await db.select().from(subtopics).where(inArray(subtopics.id, subtopicIdsNeeded))
+    : [];
+  const topicIdsNeeded = [...new Set(subtopicRows.map((s) => s.topicId))];
+  const topicRows = topicIdsNeeded.length
+    ? await db.select().from(topics).where(inArray(topics.id, topicIdsNeeded))
+    : [];
+  const subjectIdsNeeded = [...new Set(topicRows.map((t) => t.subjectId))];
+  const subjectRows = subjectIdsNeeded.length
+    ? await db.select().from(subjects).where(inArray(subjects.id, subjectIdsNeeded))
+    : [];
 
   const topicIdBySubtopicId = new Map(subtopicRows.map((s) => [s.id, s.topicId]));
   const subjectIdByTopicId = new Map(topicRows.map((t) => [t.id, t.subjectId]));
@@ -147,19 +153,29 @@ export async function GET(request: NextRequest) {
     );
   const assessmentIds = assessmentRows.map((a) => a.id);
 
-  const [attemptRows, allFacultyRows, responseRows] = await Promise.all([
+  const [attemptRows, responseRows] = await Promise.all([
     assessmentIds.length
       ? db.select().from(assessmentAttempts).where(inArray(assessmentAttempts.assessmentId, assessmentIds))
       : Promise.resolve([] as (typeof assessmentAttempts.$inferSelect)[]),
-    db.select().from(faculty).innerJoin(users, eq(faculty.userId, users.id)),
     assessmentIds.length
       ? db.select().from(studentResponses).where(inArray(studentResponses.assessmentId, assessmentIds))
       : Promise.resolve([] as (typeof studentResponses.$inferSelect)[]),
   ]);
 
-  const attemptFacultyName = new Map(
-    allFacultyRows.map((r) => [r.faculty.id, `${r.users.firstName} ${r.users.lastName}`.trim()])
+  const attemptFacultyName = new Map(facultyNameById);
+  const extraFacultyIds = [...new Set(attemptRows.map((t) => t.facultyId))].filter(
+    (id) => !attemptFacultyName.has(id)
   );
+  if (extraFacultyIds.length) {
+    const extra = await db
+      .select()
+      .from(faculty)
+      .innerJoin(users, eq(faculty.userId, users.id))
+      .where(inArray(faculty.id, extraFacultyIds));
+    for (const r of extra) {
+      attemptFacultyName.set(r.faculty.id, `${r.users.firstName} ${r.users.lastName}`.trim());
+    }
+  }
 
   const responseIds = responseRows.map((r) => r.id);
   const answerRows = responseIds.length

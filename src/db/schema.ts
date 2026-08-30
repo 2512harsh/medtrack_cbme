@@ -7,6 +7,8 @@ import {
   timestamp,
   jsonb,
   pgEnum,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // ---------- enums (mirrors src/types/index.ts) ----------
@@ -88,7 +90,11 @@ export const users = pgTable("users", {
   signatureImage: text("signature_image"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  // Role/institution/department scoping runs on almost every list endpoint.
+  index("users_role_institution_idx").on(t.role, t.institutionId),
+  index("users_role_department_idx").on(t.role, t.departmentId),
+]);
 
 export const faculty = pgTable("faculty", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -101,7 +107,10 @@ export const faculty = pgTable("faculty", {
   designation: text("designation").notNull(),
   employeeCode: text("employee_code").notNull().unique(),
   specialization: text("specialization"),
-});
+}, (t) => [
+  index("faculty_user_idx").on(t.userId),
+  index("faculty_department_idx").on(t.departmentId),
+]);
 
 export const streams = pgTable("streams", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -129,7 +138,7 @@ export const batches = pgTable("batches", {
   admissionYear: integer("admission_year").notNull(),
   status: userStatusEnum("status").default("ACTIVE"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [index("batches_institution_idx").on(t.institutionId)]);
 
 export const students = pgTable("students", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -148,7 +157,7 @@ export const students = pgTable("students", {
     .notNull()
     .references(() => batches.id, { onDelete: "restrict" }),
   admissionYear: integer("admission_year").notNull(),
-});
+}, (t) => [index("students_batch_idx").on(t.batchId)]);
 
 // ---------- curriculum ----------
 
@@ -162,7 +171,7 @@ export const subjects = pgTable("subjects", {
     .references(() => departments.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
-});
+}, (t) => [index("subjects_department_idx").on(t.departmentId)]);
 
 export const topics = pgTable("topics", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -171,7 +180,7 @@ export const topics = pgTable("topics", {
     .references(() => subjects.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   displayOrder: integer("display_order"),
-});
+}, (t) => [index("topics_subject_idx").on(t.subjectId)]);
 
 export const subtopics = pgTable("subtopics", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -180,7 +189,7 @@ export const subtopics = pgTable("subtopics", {
     .references(() => topics.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   displayOrder: integer("display_order"),
-});
+}, (t) => [index("subtopics_topic_idx").on(t.topicId)]);
 
 export const competencies = pgTable("competencies", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -193,7 +202,7 @@ export const competencies = pgTable("competencies", {
   competencyLevel: text("competency_level"),
   core: boolean("core").default(false),
   status: text("status").notNull(),
-});
+}, (t) => [index("competencies_subtopic_idx").on(t.subtopicId)]);
 
 export const questionTemplates = pgTable("question_templates", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -212,7 +221,7 @@ export const questions = pgTable("questions", {
   questionText: text("question_text").notNull(),
   displayOrder: integer("display_order").notNull(),
   required: boolean("required").default(true).notNull(),
-});
+}, (t) => [index("questions_template_idx").on(t.templateId)]);
 
 // ---------- allocation & assignment ----------
 
@@ -232,7 +241,10 @@ export const studentAllocations = pgTable("student_allocations", {
     .references(() => users.id, { onDelete: "set null" }),
   allocatedDate: timestamp("allocated_date", { withTimezone: true }).defaultNow().notNull(),
   active: boolean("active").default(true).notNull(),
-});
+}, (t) => [
+  index("student_allocations_student_idx").on(t.studentId),
+  index("student_allocations_faculty_idx").on(t.facultyId),
+]);
 
 export const competencyAssignments = pgTable("competency_assignments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -249,7 +261,11 @@ export const competencyAssignments = pgTable("competency_assignments", {
     .notNull()
     .references(() => users.id, { onDelete: "set null" }),
   assignedDate: timestamp("assigned_date", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("competency_assignments_batch_idx").on(t.batchId),
+  index("competency_assignments_faculty_idx").on(t.facultyId),
+  index("competency_assignments_competency_idx").on(t.competencyId),
+]);
 
 // ---------- assessment ----------
 
@@ -264,7 +280,10 @@ export const assessments = pgTable("assessments", {
   currentAttempt: integer("current_attempt").default(1).notNull(),
   currentStatus: assessmentStatusEnum("current_status").default("Draft").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [
+  index("assessments_student_assignment_idx").on(t.studentId, t.competencyAssignmentId),
+  index("assessments_assignment_idx").on(t.competencyAssignmentId),
+]);
 
 export const assessmentAttempts = pgTable("assessment_attempts", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -284,7 +303,7 @@ export const assessmentAttempts = pgTable("assessment_attempts", {
   studentSignature: text("student_signature"),
   studentSignedAt: timestamp("student_signed_at", { withTimezone: true }),
   status: assessmentStatusEnum("status").notNull(),
-});
+}, (t) => [index("assessment_attempts_assessment_idx").on(t.assessmentId)]);
 
 export const studentResponses = pgTable("student_responses", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -295,7 +314,7 @@ export const studentResponses = pgTable("student_responses", {
     .notNull()
     .references(() => questionTemplates.id, { onDelete: "cascade" }),
   submittedAt: timestamp("submitted_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [index("student_responses_assessment_idx").on(t.assessmentId)]);
 
 export const studentResponseAnswers = pgTable("student_response_answers", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -306,7 +325,35 @@ export const studentResponseAnswers = pgTable("student_response_answers", {
     .notNull()
     .references(() => questions.id, { onDelete: "cascade" }),
   answerText: text("answer_text").notNull().default(""),
-});
+}, (t) => [index("student_response_answers_response_idx").on(t.responseId)]);
+
+export const certificateSignoffRoleEnum = pgEnum("certificate_signoff_role", [
+  "Faculty-in-charge",
+  "HOD",
+  "Dean",
+]);
+
+export const certificateSignoffs = pgTable("certificate_signoffs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  studentId: uuid("student_id")
+    .notNull()
+    .references(() => students.id, { onDelete: "cascade" }),
+  departmentId: uuid("department_id")
+    .notNull()
+    .references(() => departments.id, { onDelete: "cascade" }),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id, { onDelete: "cascade" }),
+  role: certificateSignoffRoleEnum("role").notNull(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  signerName: text("signer_name").notNull(),
+  signatureImage: text("signature_image"),
+  signedAt: timestamp("signed_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  // One sign-off per (student, department, role) — the DELETE-then-INSERT in the
+  // route keeps this true; the constraint makes it impossible to break.
+  uniqueIndex("certificate_signoffs_student_dept_role_uq").on(t.studentId, t.departmentId, t.role),
+]);
 
 // ---------- notifications & audit ----------
 
@@ -320,7 +367,7 @@ export const notifications = pgTable("notifications", {
   type: text("type").notNull(),
   read: boolean("read").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => [index("notifications_user_idx").on(t.userId)]);
 
 export const auditLogs = pgTable("audit_logs", {
   id: uuid("id").primaryKey().defaultRandom(),
