@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Eye, FileText } from "lucide-react";
 import { getAssignedStudents } from "@/features/faculty/services/faculty";
 import Link from "next/link";
@@ -84,6 +86,17 @@ export default function AssignedStudentsPage() {
   const [data, setData] = useState<AssignedStudentRow[] | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [batchFilter, setBatchFilter] = useState<string>("all");
+
+  const batchOptions = useMemo(
+    () => [...new Set((data ?? []).map((s) => s.batch).filter(Boolean))].sort(),
+    [data]
+  );
+
+  const visibleRows = useMemo(
+    () => (data ?? []).filter((r) => batchFilter === "all" || r.batch === batchFilter),
+    [data, batchFilter]
+  );
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -109,6 +122,27 @@ export default function AssignedStudentsPage() {
         description="View and assess your assigned students"
       />
 
+      {batchOptions.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Label htmlFor="batch-filter" className="text-sm text-muted-foreground">
+            Batch
+          </Label>
+          <Select value={batchFilter} onValueChange={(v) => setBatchFilter(v ?? "all")}>
+            <SelectTrigger id="batch-filter" className="w-56">
+              <SelectValue>{batchFilter === "all" ? "All batches" : batchFilter}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All batches</SelectItem>
+              {batchOptions.map((b) => (
+                <SelectItem key={b} value={b}>
+                  {b}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <AsyncContent
         data={data}
         isLoading={isLoading}
@@ -118,10 +152,10 @@ export default function AssignedStudentsPage() {
         emptyDescription="No students have been assigned to you yet."
         loadingColumns={4}
       >
-        {(students) => (
+        {() => (
           <DataTable
             columns={columns}
-            data={students}
+            data={visibleRows}
             searchPlaceholder="Search students..."
           />
         )}

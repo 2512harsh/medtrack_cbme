@@ -71,11 +71,10 @@ export function getFaculty(departmentId?: string): Promise<Faculty[]> {
   return apiGet<Faculty[]>(url);
 }
 
-export function getStudents(departmentId?: string): Promise<Student[]> {
-  const url = departmentId
-    ? `/api/dean/students?departmentId=${encodeURIComponent(departmentId)}`
-    : "/api/dean/students";
-  return apiGet<Student[]>(url);
+export function getStudents(): Promise<Student[]> {
+  // Students are institution-scoped (Dean and HOD both see all of them) — the
+  // server ignores any department filter, so there's no param here.
+  return apiGet<Student[]>("/api/dean/students");
 }
 
 export function getStudentAllocations(departmentId?: string): Promise<StudentAllocation[]> {
@@ -164,7 +163,6 @@ function flattenStudent(data: Partial<Student>, password?: string) {
     lastName: data.user?.lastName,
     email: data.user?.email,
     password,
-    departmentId: data.user?.departmentId,
     status: data.user?.status,
   };
 }
@@ -191,18 +189,16 @@ export interface StudentImportRow {
   professionalYear: string;
   batch: string;
   admissionYear?: string;
-  department?: string;
   password?: string;
   sheet?: string;
   rowNumber?: number;
 }
 
 export function importStudents(
-  defaultDepartmentId: string | undefined,
   mode: "insert" | "update" | "upsert",
   rows: StudentImportRow[]
 ): Promise<StudentImportResult> {
-  return apiSend<StudentImportResult>("/api/dean/students/import", "POST", { defaultDepartmentId, mode, rows });
+  return apiSend<StudentImportResult>("/api/dean/students/import", "POST", { mode, rows });
 }
 
 export function updateStudent(id: string, data: Partial<Student>, password?: string): Promise<Student> {
@@ -301,11 +297,12 @@ export interface DepartmentReportRow {
   progress: number;
 }
 
-// Faculty/students/assignments below are already scoped server-side to the
-// caller (Dean -> own institution, HOD -> own department), so the department
-// breakdown naturally comes out right per role with no extra filtering here:
-// an HOD's facultyList/studentList only ever contain their own department,
-// so `relevantDepartmentIds` collapses to just that one department.
+// Faculty/assignments/assessments below are already scoped server-side to the
+// caller (Dean/HOD -> own institution), so the department breakdown comes out
+// right per role with no extra filtering here. Students are not tied to a
+// department — a student rotates through many over their years — so a
+// department's "students" is the count of distinct students who have an
+// assessment under that department's competency assignments.
 export async function getDepartmentReport(): Promise<{
   summary: { totalDepartments: number; totalFaculty: number; totalStudents: number };
   departments: DepartmentReportRow[];
@@ -321,14 +318,16 @@ export async function getDepartmentReport(): Promise<{
 
   const relevantDepartmentIds = new Set<string>();
   facultyList.forEach((f) => f.departmentId && relevantDepartmentIds.add(f.departmentId));
-  studentList.forEach((s) => s.user?.departmentId && relevantDepartmentIds.add(s.user.departmentId));
 
   const rows: DepartmentReportRow[] = allDepartments
     .filter((d) => relevantDepartmentIds.has(d.id))
     .map((d) => {
       const deptFaculty = facultyList.filter((f) => f.departmentId === d.id).length;
-      const deptStudents = studentList.filter((s) => s.user?.departmentId === d.id).length;
       const deptAssignments = assignments.filter((a) => a.faculty?.departmentId === d.id);
+      const deptAssignmentIds = new Set(deptAssignments.map((a) => a.id));
+      const deptStudents = new Set(
+        assessmentsList.filter((a) => deptAssignmentIds.has(a.competencyAssignmentId)).map((a) => a.studentId)
+      ).size;
 
       let completed = 0;
       let total = 0;
@@ -353,7 +352,9 @@ export async function getDepartmentReport(): Promise<{
     summary: {
       totalDepartments: rows.length,
       totalFaculty: rows.reduce((sum, r) => sum + r.faculty, 0),
-      totalStudents: rows.reduce((sum, r) => sum + r.students, 0),
+      // Institution-wide distinct student count — students aren't partitioned
+      // by department, so summing the per-department counts would double-count.
+      totalStudents: studentList.length,
     },
     departments: rows,
   };

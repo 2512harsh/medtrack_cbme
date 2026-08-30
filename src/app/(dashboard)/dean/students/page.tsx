@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { useAuth } from "@/features/authentication/hooks/useAuth";
 import { DataTable, AppTableFeatures } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Edit, Trash2, FileSpreadsheet } from "lucide-react";
 import {
   getStudents,
@@ -12,13 +13,12 @@ import {
   updateStudent,
   deleteStudent,
 } from "@/features/dean/services/dean";
-import { getCurriculumDepartments } from "@/features/curriculum/services/curriculum";
 import {
   StudentFormDialog,
   type StudentFormValues,
 } from "@/features/dean/components/StudentFormDialog";
 import Link from "next/link";
-import type { Department, Student } from "@/types";
+import type { Student } from "@/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { ConfirmationDialog } from "@/components/ConfirmationDialog";
 import { AsyncContent } from "@/components/shared/AsyncContent";
@@ -34,13 +34,11 @@ type StudentRow = {
 };
 
 export default function StudentManagementPage() {
-  // Scoping to the caller's institution/department is enforced server-side
-  // in /api/dean/students based on the session, not on query params here.
-  const { user } = useAuth();
-  const lockedDepartmentId = user?.role === "HOD" ? user.departmentId : undefined;
+  // Students are institution-scoped (not by department) — Dean and HOD both see
+  // every student in their institution. Scoping is enforced server-side in
+  // /api/dean/students from the session, not from query params here.
   const [data, setData] = useState<StudentRow[] | undefined>(undefined);
   const [studentList, setStudentList] = useState<Student[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -48,6 +46,19 @@ export default function StudentManagementPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StudentRow | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [batchFilter, setBatchFilter] = useState<string>("all");
+
+  // Students aren't grouped by department — batch is how HOD/Faculty/Dean slice
+  // the list. Options come from the students actually loaded.
+  const batchOptions = useMemo(
+    () => [...new Set(studentList.map((s) => s.batch).filter(Boolean))].sort(),
+    [studentList]
+  );
+
+  const visibleRows = useMemo(
+    () => (data ?? []).filter((r) => batchFilter === "all" || r.batch === batchFilter),
+    [data, batchFilter]
+  );
 
   const rowsFrom = (students: Student[]): StudentRow[] =>
     students.map((s) => ({
@@ -63,9 +74,8 @@ export default function StudentManagementPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const [students, depts] = await Promise.all([getStudents(), getCurriculumDepartments()]);
+      const students = await getStudents();
       setStudentList(students);
-      setDepartments(depts);
       setData(rowsFrom(students));
     } catch (err) {
       setError(err instanceof Error ? err : new Error("Failed to load students"));
@@ -125,7 +135,6 @@ export default function StudentManagementPage() {
               lastName: values.lastName,
               email: values.email,
               status: values.status,
-              departmentId: values.departmentId,
               updatedAt: new Date().toISOString(),
             },
           },
@@ -150,7 +159,6 @@ export default function StudentManagementPage() {
               email: values.email,
               role: "Student",
               status: values.status,
-              departmentId: values.departmentId,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },
@@ -259,6 +267,27 @@ export default function StudentManagementPage() {
         }
       />
 
+      {batchOptions.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Label htmlFor="batch-filter" className="text-sm text-muted-foreground">
+            Batch
+          </Label>
+          <Select value={batchFilter} onValueChange={(v) => setBatchFilter(v ?? "all")}>
+            <SelectTrigger id="batch-filter" className="w-56">
+              <SelectValue>{batchFilter === "all" ? "All batches" : batchFilter}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All batches</SelectItem>
+              {batchOptions.map((b) => (
+                <SelectItem key={b} value={b}>
+                  {b}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <AsyncContent
         data={data}
         isLoading={isLoading}
@@ -268,8 +297,8 @@ export default function StudentManagementPage() {
         emptyDescription="No students have been imported yet."
         loadingColumns={5}
       >
-        {(students) => (
-          <DataTable columns={columns} data={students} searchPlaceholder="Search students..." />
+        {() => (
+          <DataTable columns={columns} data={visibleRows} searchPlaceholder="Search students..." />
         )}
       </AsyncContent>
 
@@ -277,10 +306,8 @@ export default function StudentManagementPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         student={editingStudent}
-        departments={departments}
         isSaving={isSaving}
         onSave={handleSave}
-        lockedDepartmentId={lockedDepartmentId}
       />
 
       <ConfirmationDialog

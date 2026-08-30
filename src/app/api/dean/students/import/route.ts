@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { students, users, streams, professionalYears, batches, departments } from "@/db/schema";
+import { students, users, streams, professionalYears, batches } from "@/db/schema";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { hashPassword } from "@/lib/password";
 import { requireRole, requireInstitution } from "@/lib/api-auth";
@@ -16,7 +16,6 @@ interface ImportRow {
   professionalYear: string;
   batch: string;
   admissionYear?: string;
-  department?: string;
   password?: string;
   sheet?: string;
   rowNumber?: number;
@@ -35,8 +34,7 @@ export async function POST(request: NextRequest) {
   if (institutionError) return institutionError;
 
   const body = await request.json();
-  const { defaultDepartmentId, mode, rows } = body as {
-    defaultDepartmentId?: string;
+  const { mode, rows } = body as {
     mode?: ImportMode;
     rows?: ImportRow[];
   };
@@ -45,10 +43,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: "rows are required" }, { status: 400 });
   }
   const importMode: ImportMode = mode ?? "upsert";
-
-  // HOD's imported students always land in their own department; Dean falls
-  // back to the row's Department column, then the selected default.
-  const lockedDepartmentId = auth.user.role === "HOD" ? auth.user.departmentId : undefined;
 
   const allStreams = await db.select().from(streams);
   const streamIdByName = new Map(allStreams.map((s) => [s.name.trim().toLowerCase(), s.id]));
@@ -61,22 +55,17 @@ export async function POST(request: NextRequest) {
   const institutionBatches = await db.select().from(batches).where(eq(batches.institutionId, auth.user.institutionId!));
   const batchByName = new Map(institutionBatches.map((b) => [b.name.trim().toLowerCase(), b]));
 
-  const allDepartments = await db.select().from(departments);
-  const departmentIdByName = new Map(allDepartments.map((d) => [d.name.trim().toLowerCase(), d.id]));
-
-  // Scoped to the caller's institution (and department, for HOD) so an
-  // "update" row can never edit a student that isn't theirs to touch —
-  // registrationNumber is unique DB-wide, but a match outside scope should
-  // still error out, not silently update someone else's student.
+  // Scoped to the caller's institution so an "update" row can never edit a
+  // student outside it — registrationNumber is unique DB-wide, but a match in
+  // another institution should still error out, not silently update someone
+  // else's student.
   const scopedStudentRows = await db
     .select()
     .from(students)
     .innerJoin(users, eq(students.userId, users.id))
     .where(eq(users.institutionId, auth.user.institutionId!));
   const existingByRegistrationNumber = new Map(
-    scopedStudentRows
-      .filter((r) => auth.user.role !== "HOD" || r.users.departmentId === auth.user.departmentId)
-      .map((r) => [r.students.registrationNumber.trim().toLowerCase(), r.students])
+    scopedStudentRows.map((r) => [r.students.registrationNumber.trim().toLowerCase(), r.students])
   );
 
   let created = 0;
@@ -124,15 +113,6 @@ export async function POST(request: NextRequest) {
         throw new Error("Invalid admission year");
       }
 
-      let departmentId = lockedDepartmentId;
-      if (!departmentId) {
-        const departmentName = row.department?.trim();
-        departmentId = departmentName ? departmentIdByName.get(departmentName.toLowerCase()) : defaultDepartmentId;
-        if (departmentName && !departmentId) {
-          throw new Error(`Unknown department "${departmentName}"`);
-        }
-      }
-
       const existing = existingByRegistrationNumber.get(registrationNumber.toLowerCase());
 
       if (existing) {
@@ -146,7 +126,6 @@ export async function POST(request: NextRequest) {
             firstName,
             lastName,
             email,
-            departmentId: departmentId || null,
             ...(row.password?.trim() ? { passwordHash: hashPassword(row.password.trim()) } : {}),
           })
           .where(eq(users.id, existing.userId))
@@ -175,7 +154,6 @@ export async function POST(request: NextRequest) {
             role: "Student",
             status: "ACTIVE",
             institutionId: auth.user.institutionId,
-            departmentId: departmentId || null,
           })
           .returning();
         const [newStudent] = await db

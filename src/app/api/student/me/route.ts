@@ -39,7 +39,6 @@ export async function GET(request: NextRequest) {
       email: row.users.email,
       role: row.users.role,
       status: row.users.status,
-      departmentId: row.users.departmentId ?? undefined,
       createdAt: row.users.createdAt,
       updatedAt: row.users.updatedAt,
     },

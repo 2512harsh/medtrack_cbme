@@ -1,22 +1,18 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { OptionGroup } from "@/components/shared/OptionGroup";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FileUploader } from "@/components/shared/FileUploader";
 import { Accordion } from "@/components/shared/Accordion";
 import { Download, Upload, Trash2, Loader2, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/features/authentication/hooks/useAuth";
-import { getCurriculumDepartments } from "@/features/curriculum/services/curriculum";
 import { importStudents, type StudentImportResult } from "@/features/dean/services/dean";
 import { parseStudentImportFile, type ParseResult } from "@/features/dean/lib/parseStudentImportFile";
-import type { Department } from "@/types";
 
 const MAX_FILE_SIZE = 5;
 
@@ -40,24 +36,12 @@ function downloadCsv(filename: string, content: string) {
 }
 
 export default function StudentImportPage() {
-  const { user } = useAuth();
-  const lockedDepartmentId = user?.role === "HOD" ? user.departmentId : undefined;
-
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [departmentId, setDepartmentId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [importMode, setImportMode] = useState<ImportMode>("upsert");
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<StudentImportResult | null>(null);
-
-  useEffect(() => {
-    getCurriculumDepartments().then((depts) => {
-      setDepartments(depts);
-      setDepartmentId((prev) => prev || lockedDepartmentId || depts[0]?.id || "");
-    });
-  }, [lockedDepartmentId]);
 
   const canImport = parseResult && parseResult.rows.length > 0 && stage === "ready";
 
@@ -89,7 +73,7 @@ export default function StudentImportPage() {
     if (!parseResult) return;
     setStage("importing");
     try {
-      const result = await importStudents(lockedDepartmentId ?? departmentId ?? undefined, importMode, parseResult.rows);
+      const result = await importStudents(importMode, parseResult.rows);
       setImportResult(result);
       setStage("done");
     } catch (err) {
@@ -198,48 +182,21 @@ export default function StudentImportPage() {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="department">Default Department</Label>
-                  <Select
-                    items={departments.map((d) => ({ value: d.id, label: d.name }))}
-                    value={lockedDepartmentId ?? departmentId}
-                    onValueChange={(v) => setDepartmentId(v ?? "")}
-                    disabled={stage === "importing" || !!lockedDepartmentId}
-                  >
-                    <SelectTrigger className="w-full" id="department">
-                      <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((d) => (
-                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {lockedDepartmentId ? (
-                    <p className="text-xs text-muted-foreground">Locked to your own department.</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Used only for rows that don&apos;t have their own Department column in the file.
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="import-mode">Import Mode</Label>
-                  <OptionGroup
-                    value={importMode}
-                    onValueChange={(v) => setImportMode(v as ImportMode)}
-                    disabled={stage === "importing"}
-                    options={[
-                      { value: "insert", label: "Insert" },
-                      { value: "update", label: "Update" },
-                      { value: "upsert", label: "Upsert" },
-                    ]}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Rows are matched to existing students by Registration Number.
-                  </p>
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="import-mode">Import Mode</Label>
+                <OptionGroup
+                  value={importMode}
+                  onValueChange={(v) => setImportMode(v as ImportMode)}
+                  disabled={stage === "importing"}
+                  options={[
+                    { value: "insert", label: "Insert" },
+                    { value: "update", label: "Update" },
+                    { value: "upsert", label: "Upsert" },
+                  ]}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Rows are matched to existing students by Registration Number.
+                </p>
               </div>
 
               <FileUploader
@@ -410,7 +367,7 @@ export default function StudentImportPage() {
                     <li>First row of each sheet must contain column headers</li>
                     <li>Required columns: Name (or First Name/Last Name), Email, Roll Number</li>
                     <li>Required columns: Stream, Professional Year, Batch — must match existing names exactly</li>
-                    <li>Optional columns: Registration Number (defaults to Roll Number), Admission Year (defaults to the batch&apos;s), Department, Password</li>
+                    <li>Optional columns: Registration Number (defaults to Roll Number), Admission Year (defaults to the batch&apos;s), Password</li>
                     <li>Streams, Professional Years, and Batches aren&apos;t created automatically — add them first under Curriculum</li>
                     <li>If a row has no Password column, a random one is generated and shown after import — download and share it, it can&apos;t be recovered later</li>
                     <li>Rows are matched to existing students by Registration Number — matching rows update the existing student instead of duplicating it</li>
