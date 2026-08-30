@@ -83,6 +83,9 @@ export const users = pgTable("users", {
   departmentId: uuid("department_id").references(() => departments.id, {
     onDelete: "set null",
   }),
+  // Base64 data URL (PNG/JPEG) of the user's signature — reused on certificates
+  // and official logbook documents so it isn't re-drawn per document.
+  signatureImage: text("signature_image"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

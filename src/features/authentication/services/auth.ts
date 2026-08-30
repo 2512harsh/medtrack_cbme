@@ -23,7 +23,12 @@ export async function getCurrentUser(): Promise<UserSummary | null> {
   return res.json();
 }
 
-export async function updateProfile(data: { firstName: string; lastName: string; email: string }): Promise<UserSummary> {
+export async function updateProfile(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  signatureImage?: string | null;
+}): Promise<UserSummary> {
   const res = await fetch("/api/auth/me", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

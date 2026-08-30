@@ -359,3 +359,103 @@ export async function getDepartmentReport(): Promise<{
     departments: rows,
   };
 }
+
+// ---------- HOD Logbook ----------
+
+export interface LogbookAttempt {
+  attemptNumber: number;
+  rating: string;
+  decision: string;
+  remarks: string;
+  facultyName: string;
+  facultySignedAt: string;
+  studentAcknowledged: boolean;
+}
+
+export interface LogbookEntry {
+  assignmentId: string;
+  status: string;
+  attemptCount: number;
+  attempts: LogbookAttempt[];
+  response: { submittedAt: string; answers: { question: string; answer: string }[] } | null;
+}
+
+export interface LogbookCompetency {
+  assignmentId: string;
+  competencyCode: string;
+  competencyTitle: string;
+  subjectName: string;
+  facultyName: string;
+}
+
+export interface LogbookStudent {
+  id: string;
+  name: string;
+  rollNumber: string;
+  registrationNumber: string;
+  completedCount: number;
+  totalCount: number;
+  eligibleForCertificate: boolean;
+  entries: LogbookEntry[];
+}
+
+export interface Logbook {
+  batch: { id: string; name: string };
+  department: { id: string; name: string };
+  competencies: LogbookCompetency[];
+  students: LogbookStudent[];
+}
+
+export function getLogbook(batchId: string, departmentId?: string): Promise<Logbook> {
+  const params = new URLSearchParams({ batchId });
+  if (departmentId) params.set("departmentId", departmentId);
+  return apiGet<Logbook>(`/api/reports/logbook?${params.toString()}`);
+}
+
+export interface LogbookSignatory {
+  name: string;
+  signatureImage: string | null;
+}
+
+export interface LogbookCertificateCompetency {
+  competencyCode: string;
+  competencyTitle: string;
+  subjectName: string;
+  facultyName: string;
+  status: string;
+  attempts: LogbookAttempt[];
+  response: { submittedAt: string; answers: { question: string; answer: string }[] } | null;
+}
+
+export interface LogbookCertificate {
+  institution: { name: string };
+  department: { name: string };
+  subjectLabel: string;
+  student: {
+    id: string;
+    name: string;
+    rollNumber: string;
+    registrationNumber: string;
+    email: string;
+    batch: string;
+    professionalYear: string;
+    admissionYear: number;
+  };
+  signatories: {
+    facultyInCharge: LogbookSignatory;
+    hod: LogbookSignatory;
+    dean: LogbookSignatory;
+  };
+  eligibility: { eligible: boolean; completedCount: number; totalCount: number; pendingCount: number };
+  competencies: LogbookCertificateCompetency[];
+}
+
+export function getLogbookCertificate(
+  batchId: string,
+  studentId: string,
+  departmentId?: string
+): Promise<LogbookCertificate> {
+  const params = new URLSearchParams({ batchId, studentId });
+  if (departmentId) params.set("departmentId", departmentId);
+  return apiGet<LogbookCertificate>(`/api/reports/logbook/certificate?${params.toString()}`);
+}
